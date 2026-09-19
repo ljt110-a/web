@@ -1,0 +1,686 @@
+/* ============================================================
+   web-one 样式表（从原来的单文件页面里拆出来，视觉部分完全没改）
+
+   想调颜色 / 尺寸 / 动画时长，只需要改第 1 部分的 CSS 变量。
+   各部分顺序与原页面一致：
+     1 变量  2 全局重置  3 欢迎页  4 导航栏  5 首屏
+     6 卡片  7 页脚与入场动画  8 登录弹窗  9 后台面板
+    10 全栈版新增：后端状态提示、在线状态点
+   ============================================================ */
+
+/* ============================================================
+   第 1 部分：全局 CSS 变量（想改颜色 / 尺寸 / 动画时长，改这里即可）
+   ============================================================ */
+:root {/* :root 代表整个文档，在这里定义的变量全页面都可以使用 */
+  /* ---------- 欢迎页相关变量 ---------- */
+  --welcome-bg: #05070f;/* 欢迎页背景色（近黑的深蓝，营造暗色科技氛围） */
+  --welcome-text-color: #eaf6ff;/* 欢迎文字的基础颜色（冷白色） */
+  --welcome-glow-color: #4cc9f0;/* 欢迎文字的发光颜色（霓虹青蓝色） */
+  --welcome-glow-strength: 16px;/* 发光强度：光晕模糊半径，数值越大光晕越大 */
+  --welcome-font-size: clamp(2.6rem, 9vw, 6rem);/* 欢迎文字字号：最小 2.6rem / 理想值 9% 屏宽 / 最大 6rem，自动适配手机和电脑 */
+  --welcome-font-weight: 700;/* 欢迎文字粗细（700 为加粗） */
+  --cursor-width: 4px;/* 闪烁光标的宽度 */
+  --cursor-height: 0.9em;/* 光标高度（em 单位会随字号一起缩放） */
+  --cursor-color: #4cc9f0;/* 光标颜色 */
+  --cursor-blink-speed: 0.8s;/* 光标闪烁一个周期的时长，数值越小闪得越快 */
+  --welcome-fade-duration: 0.9s;/* 欢迎页整体淡出（进入主页面）的动画时长 */
+
+  /* ---------- 主页面相关变量 ---------- */
+  --main-bg: #0a0d1c;/* 主页面背景基础色（深蓝黑） */
+  --accent-1: #4cc9f0;/* 主强调色：青蓝（用于渐变、按钮、发光） */
+  --accent-2: #7b5cff;/* 次强调色：紫色（与青蓝搭配出科技感渐变） */
+  --accent-3: #ff6b9d;/* 点缀色：粉色（让渐变层次更丰富） */
+  --text-main: #eef2ff;/* 主文字颜色（亮白微蓝） */
+  --text-sub: #98a2c8;/* 副文字颜色（灰蓝色，用于弱化的说明文字） */
+  --glass-bg: rgba(255, 255, 255, 0.06);/* 玻璃拟态背景：6% 透明度的白色 */
+  --glass-border: rgba(255, 255, 255, 0.14);/* 玻璃拟态边框：14% 透明度的白色 */
+  --glass-blur: 16px;/* 玻璃拟态的背景模糊强度（毛玻璃效果的核心） */
+  --radius-lg: 20px;/* 大圆角（用于卡片） */
+  --radius-sm: 12px;/* 小圆角（用于按钮、徽章） */
+  --content-width: 1100px;/* 主内容区最大宽度，超宽屏幕时两侧留白 */
+}
+
+/* ============================================================
+   第 2 部分：全局重置与基础样式
+   ============================================================ */
+* {/* 星号选中页面上所有元素 */
+  margin: 0;/* 清除浏览器默认的外边距 */
+  padding: 0;/* 清除浏览器默认的内边距 */
+  box-sizing: border-box;/* 让 width/height 的计算包含 padding 和 border，布局更好算 */
+}
+html {/* 选中根元素 html */
+  scroll-behavior: smooth;/* 点击锚点链接时平滑滚动，而不是瞬间跳转 */
+}
+body {
+  font-family: "PingFang SC", "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif;/* 字体栈：优先使用苹果/微软系统的中文字体 */
+  background: var(--main-bg);/* 页面背景色，引用上面的变量 */
+  color: var(--text-main);/* 全局默认文字颜色 */
+  min-height: 100vh;/* 页面至少占满一屏高度 */
+  overflow-x: hidden;/* 隐藏横向滚动条，防止装饰元素把页面撑宽 */
+}
+body.lock {/* JS 会在欢迎页播放期间给 body 加上 lock 类 */
+  overflow: hidden;/* 锁定滚动，避免欢迎页期间背景里的主页面被滚动 */
+}
+/* 主页面背景装饰：一层极淡的网格线，增强科技感 */
+body::before {/* ::before 伪元素，在 body 内容前插入一个装饰层 */
+  content: "";/* 伪元素必须写 content 才会显示，空字符串即可 */
+  position: fixed;/* 固定定位：滚动页面时网格保持不动 */
+  inset: 0;/* 同时设置上/右/下/左为 0，铺满整个屏幕 */
+  z-index: -1;/* 层级设为 -1，沉到所有内容的下方 */
+  background-image: linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);/* 两个方向的 1px 细线叠加成网格 */
+  background-size: 44px 44px;/* 每个网格单元 44px 见方 */
+  pointer-events: none;/* 让装饰层不拦截鼠标点击 */
+}
+
+/* ============================================================
+   第 3 部分：全屏欢迎页（打字机 + 闪烁光标 + 发光 + 淡出）
+   ============================================================ */
+#welcome-screen {
+  position: fixed;/* 固定定位，相对于浏览器窗口 */
+  inset: 0;/* 铺满整个屏幕 */
+  z-index: 9999;/* 层级最高，盖住下方的主页面 */
+  display: flex;/* 弹性布局 */
+  align-items: center;/* 子元素垂直居中 */
+  justify-content: center;/* 子元素水平居中 */
+  background: radial-gradient(ellipse at 50% 40%, #0b1026 0%, var(--welcome-bg) 65%);/* 径向渐变背景：中心稍亮、四周更深 */
+  transition: opacity var(--welcome-fade-duration) ease;/* 淡出动画：只过渡透明度，时长由变量控制 */
+}
+#welcome-screen.hide {/* JS 在合适时机加上 hide 类，触发整体淡出 */
+  opacity: 0;/* 变为完全透明 */
+  pointer-events: none;/* 淡出过程中不再响应鼠标，防止误点 */
+}
+/* 欢迎页的两团模糊光斑：缓慢浮动，增加氛围（不需要可直接删除对应 div） */
+.welcome-orb {
+  position: absolute;/* 在欢迎页内绝对定位，不占据排版位置 */
+  width: 40vmin;/* 宽度为视口短边的 40%，随屏幕大小自适应 */
+  height: 40vmin;/* 高度同上 */
+  border-radius: 50%;/* 变成正圆形 */
+  filter: blur(90px);/* 强高斯模糊，把色块变成柔光 */
+  opacity: 0.35;/* 降低不透明度，作为背景点缀 */
+  pointer-events: none;/* 不拦截鼠标事件 */
+}
+.welcome-orb.orb-1 {/* 第一团光斑：青蓝色，偏左上 */
+  background: var(--accent-1);/* 光斑颜色 */
+  top: 8%;/* 距离欢迎页顶部 8% */
+  left: 12%;/* 距离左侧 12% */
+  animation: orb-float 9s ease-in-out infinite alternate;/* 无限往返浮动，9 秒一个周期 */
+}
+.welcome-orb.orb-2 {/* 第二团光斑：紫色，偏右下 */
+  background: var(--accent-2);/* 光斑颜色 */
+  bottom: 10%;/* 距离底部 10% */
+  right: 12%;/* 距离右侧 12% */
+  animation: orb-float 11s ease-in-out infinite alternate-reverse;/* 反向往返，与第一团错开节奏 */
+}
+@keyframes orb-float {/* 定义光斑浮动动画的关键帧 */
+  from { transform: translate(0, 0) scale(1); }/* 起始状态：原位、原始大小 */
+  to { transform: translate(40px, -30px) scale(1.15); }/* 结束状态：向右上飘移并放大 15% */
+}
+.welcome-text-wrapper {/* 包住文字和光标，让它们排成一行 */
+  display: flex;/* 弹性布局：子元素横向排列 */
+  align-items: center;/* 垂直方向居中对齐 */
+  min-height: 1.3em;/* 预留一行文字的高度，防止打字从无到有时布局抖动 */
+}
+.welcome-text {
+  font-size: var(--welcome-font-size);/* 字号使用变量控制 */
+  font-weight: var(--welcome-font-weight);/* 文字粗细使用变量控制 */
+  color: var(--welcome-text-color);/* 文字颜色 */
+  letter-spacing: 0.12em;/* 字间距稍大，中文大标题更有气势 */
+  white-space: nowrap;/* 禁止换行，保证标题一行放下 */
+  text-shadow: 0 0 0 transparent;/* 初始无发光，作为后面发光过渡的起点 */
+  transition: text-shadow 0.9s ease;/* 打字完成后加发光时平滑过渡，不生硬 */
+}
+.welcome-text.glow {/* JS 在打字完成后添加 glow 类 → 文字开始发光 */
+  text-shadow: 0 0 10px rgba(255,255,255,0.35), 0 0 var(--welcome-glow-strength) var(--welcome-glow-color), 0 0 calc(var(--welcome-glow-strength) * 2.2) var(--welcome-glow-color);/* 三层阴影叠加：一层白色内光 + 两层霓虹外光，光晕更真实 */
+  animation: glow-breathe 2.4s ease-in-out infinite alternate;/* 呼吸式明暗变化，让光“活”起来 */
+}
+@keyframes glow-breathe {/* 定义发光呼吸动画 */
+  from { opacity: 1; }/* 最亮状态 */
+  to { opacity: 0.82; }/* 略微变暗，形成呼吸感 */
+}
+.cursor {/* 打字机光标 */
+  display: inline-block;/* 让 span 这种行内元素可以设置宽高 */
+  width: var(--cursor-width);/* 光标宽度（变量控制） */
+  height: var(--cursor-height);/* 光标高度（变量控制） */
+  margin-left: 0.08em;/* 与文字之间留一点间距 */
+  background: var(--cursor-color);/* 光标填充颜色 */
+  box-shadow: 0 0 12px var(--cursor-color);/* 给光标也加一点辉光 */
+  animation: cursor-blink var(--cursor-blink-speed) steps(1) infinite;/* 闪烁动画；steps(1) 让明暗是硬切换，更像终端光标 */
+}
+@keyframes cursor-blink {/* 定义光标闪烁动画 */
+  50% { opacity: 0; }/* 在周期中点瞬间隐藏，形成一闪一闪的效果 */
+}
+.enter-hint {/* 非自动模式下显示的“点击进入”提示 */
+  position: absolute;/* 绝对定位在欢迎页内 */
+  bottom: 18%;/* 距离底部 18% 的位置 */
+  left: 50%;/* 先移到水平中心 */
+  transform: translateX(-50%);/* 再向左偏移自身宽度的一半，实现真正的水平居中 */
+  color: var(--text-sub);/* 提示文字用弱化的灰蓝色 */
+  font-size: 0.95rem;/* 字号略小 */
+  letter-spacing: 0.15em;/* 字间距稍大 */
+  opacity: 0;/* 默认隐藏 */
+  transition: opacity 0.6s ease;/* 显示时淡入 */
+  pointer-events: none;/* 提示本身不响应点击，点击落在整个欢迎页上 */
+}
+.enter-hint.show {/* JS 显示提示时加上 show 类 */
+  opacity: 0.8;/* 淡入到 80% 不透明度 */
+}
+
+/* ============================================================
+   第 4 部分：主页面 —— 顶部导航栏（后续加链接复制 <a> 即可）
+   ============================================================ */
+.navbar {
+  position: sticky;/* 粘性定位：页面滚动时吸附在顶部 */
+  top: 0;/* 吸附在视口顶部 */
+  z-index: 100;/* 层级高于普通内容 */
+  display: flex;/* 弹性布局 */
+  align-items: center;/* 垂直居中 */
+  justify-content: space-between;/* 两端对齐：logo 在左、链接在右 */
+  padding: 14px clamp(20px, 5vw, 48px);/* 左右内边距随屏幕宽度在 20~48px 之间变化 */
+  background: rgba(10, 13, 28, 0.55);/* 半透明深色背景，为毛玻璃做准备 */
+  backdrop-filter: blur(var(--glass-blur));/* 毛玻璃效果：模糊其背后经过的内容 */
+  -webkit-backdrop-filter: blur(var(--glass-blur));/* Safari 浏览器的私有前缀写法，保证兼容 */
+  border-bottom: 1px solid var(--glass-border);/* 底部一条半透明细边框 */
+}
+.logo {/* 左上角站点名称 */
+  font-size: 1.15rem;/* 字号 */
+  font-weight: 700;/* 加粗 */
+  letter-spacing: 0.05em;/* 轻微字间距 */
+  color: var(--text-main);/* 白色文字 */
+}
+.logo .logo-dot {/* logo 里的小圆点装饰 */
+  color: var(--accent-1);/* 用强调色点亮 */
+}
+.nav-links {/* 右侧导航链接容器 */
+  display: flex;/* 横向排列 */
+  gap: 28px;/* 链接之间的间距 */
+  list-style: none;/* 去掉列表默认的项目圆点 */
+}
+.nav-links a {/* 每一个导航链接 */
+  color: var(--text-sub);/* 默认灰蓝色 */
+  text-decoration: none;/* 去掉链接下划线 */
+  font-size: 0.95rem;/* 字号 */
+  transition: color 0.25s ease;/* 颜色变化加过渡，悬停更顺滑 */
+}
+.nav-links a:hover {/* 鼠标悬停时 */
+  color: var(--text-main);/* 变亮白色 */
+}
+.nav-right {/* 导航栏右侧容器：包住导航链接和登录按钮 */
+  display: flex;/* 弹性布局 */
+  align-items: center;/* 垂直居中 */
+  gap: 28px;/* 链接区与登录按钮的间距 */
+}
+.nav-actions {/* 导航最右侧的操作区：未登录显示“登录”，已登录显示用户名 */
+  display: flex;/* 弹性布局 */
+  align-items: center;/* 垂直居中 */
+  gap: 10px;/* 里面各元素的间距 */
+}
+.login-btn {/* “登录”按钮 */
+  padding: 8px 22px;/* 内边距撑起按钮 */
+  border: 1px solid rgba(76, 201, 240, 0.45);/* 青色半透明描边 */
+  border-radius: 999px;/* 胶囊形 */
+  background: rgba(76, 201, 240, 0.08);/* 极淡的青色底 */
+  color: var(--accent-1);/* 青色文字 */
+  font-size: 0.92rem;/* 字号 */
+  letter-spacing: 0.06em;/* 字间距 */
+  cursor: pointer;/* 鼠标悬停变手形，提示可点击 */
+  transition: all 0.25s ease;/* 所有属性变化都加过渡 */
+}
+.login-btn:hover {/* 悬停时 */
+  background: rgba(76, 201, 240, 0.18);/* 底色加深 */
+  box-shadow: 0 0 18px rgba(76, 201, 240, 0.35);/* 青色辉光 */
+}
+.user-chip {/* 登录后显示的用户信息胶囊 */
+  display: flex;/* 弹性布局 */
+  align-items: center;/* 垂直居中 */
+  padding: 6px 14px;/* 内边距 */
+  border-radius: 999px;/* 胶囊形 */
+  background: var(--glass-bg);/* 玻璃背景 */
+  border: 1px solid var(--glass-border);/* 玻璃边框 */
+  color: var(--text-main);/* 白色文字 */
+  font-size: 0.9rem;/* 字号 */
+  white-space: nowrap;/* 禁止换行，用户名再长也保持一行 */
+}
+.logout-btn {/* “退出”小按钮 */
+  border: none;/* 去掉默认边框 */
+  background: none;/* 去掉默认背景 */
+  color: var(--text-sub);/* 灰蓝色 */
+  font-size: 0.8rem;/* 小字号 */
+  cursor: pointer;/* 手形光标 */
+  text-decoration: underline;/* 下划线提示可点击 */
+}
+.logout-btn:hover {/* 悬停时 */
+  color: var(--accent-3);/* 变粉色 */
+}
+
+/* ============================================================
+   第 5 部分：主页面 —— 首屏主视觉区（标题 + 副标题 + 按钮）
+   ============================================================ */
+.hero {
+  min-height: 88vh;/* 占接近一整屏的高度 */
+  display: flex;/* 弹性布局 */
+  flex-direction: column;/* 子元素纵向排列 */
+  align-items: center;/* 水平居中 */
+  justify-content: center;/* 垂直居中 */
+  text-align: center;/* 文字居中对齐 */
+  padding: 60px 24px 40px;/* 上下留白，左右内边距防止小屏贴边 */
+}
+.hero-badge {/* 标题上方的玻璃小胶囊徽章 */
+  display: inline-block;/* 行内块元素，宽度自适应内容 */
+  padding: 6px 16px;/* 内边距撑起胶囊 */
+  border-radius: 999px;/* 超大圆角 = 胶囊形状 */
+  background: var(--glass-bg);/* 半透明玻璃背景 */
+  border: 1px solid var(--glass-border);/* 半透明细边框 */
+  color: var(--accent-1);/* 徽章文字用强调色 */
+  font-size: 0.85rem;/* 小字号 */
+  letter-spacing: 0.08em;/* 字间距 */
+  margin-bottom: 26px;/* 与下方大标题的间距 */
+}
+.hero h1 {/* 主标题 */
+  font-size: clamp(2.2rem, 6vw, 4.2rem);/* 字号自适应：最小 2.2rem / 理想 6% 屏宽 / 最大 4.2rem */
+  font-weight: 800;/* 特粗 */
+  letter-spacing: 0.03em;/* 轻微字间距 */
+  line-height: 1.25;/* 行高，多行时更透气 */
+}
+.gradient-text {/* 渐变文字：把背景渐变裁剪成文字形状 */
+  background: linear-gradient(120deg, var(--accent-1), var(--accent-2) 50%, var(--accent-3));/* 三色渐变背景 */
+  -webkit-background-clip: text;/* 把背景裁剪到文字区域（WebKit 内核写法） */
+  background-clip: text;/* 标准写法 */
+  -webkit-text-fill-color: transparent;/* 把文字填充色设为透明，露出渐变背景 */
+  color: transparent;/* 兼容不支持前缀写法的浏览器 */
+}
+.hero .subtitle {/* 副标题说明文字 */
+  max-width: 560px;/* 限制最大宽度，一行不至于太长影响阅读 */
+  margin: 22px 0 38px;/* 上、下外边距与标题和按钮隔开 */
+  color: var(--text-sub);/* 灰蓝色弱化层级 */
+  font-size: clamp(1rem, 2vw, 1.15rem);/* 字号自适应 */
+  line-height: 1.8;/* 行高 1.8 倍，中文阅读更舒适 */
+}
+.btn-primary {/* 主按钮（胶囊形渐变按钮） */
+  display: inline-block;/* 行内块，方便作为链接使用 */
+  padding: 14px 44px;/* 上下、左右内边距 */
+  border-radius: 999px;/* 全圆角 → 胶囊形 */
+  background: linear-gradient(135deg, var(--accent-1), var(--accent-2));/* 青蓝到紫的渐变背景 */
+  color: #ffffff;/* 按钮文字白色 */
+  font-size: 1rem;/* 字号 */
+  font-weight: 600;/* 半粗 */
+  letter-spacing: 0.08em;/* 字间距 */
+  text-decoration: none;/* 去掉链接下划线 */
+  box-shadow: 0 8px 30px rgba(76, 201, 240, 0.35);/* 按钮下方的青色投影，制造悬浮感 */
+  transition: transform 0.25s ease, box-shadow 0.25s ease;/* 悬停时位移和投影平滑变化 */
+}
+.btn-primary:hover {/* 鼠标悬停时 */
+  transform: translateY(-3px);/* 向上浮起 3px */
+  box-shadow: 0 14px 40px rgba(123, 92, 255, 0.45);/* 投影变大变紫，悬浮感更强 */
+}
+
+/* ============================================================
+   第 6 部分：主页面 —— 示例卡片区域（想加卡片复制 .card 即可，不需要可整段删除）
+   ============================================================ */
+.cards-section {
+  max-width: var(--content-width);/* 内容区最大宽度 */
+  margin: 0 auto;/* 左右自动外边距 = 水平居中 */
+  padding: 20px 24px 90px;/* 上、左右、下内边距 */
+}
+.cards-section h2 {/* 区域小标题 */
+  text-align: center;/* 居中 */
+  font-size: clamp(1.5rem, 3vw, 2rem);/* 字号自适应 */
+  font-weight: 700;/* 加粗 */
+}
+.cards-grid {/* 卡片网格容器 */
+  display: grid;/* 网格布局 */
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));/* 自动换列：每列最少 240px，放不下就自动减列（手机变一列） */
+  gap: 22px;/* 卡片之间的间距 */
+  margin-top: 36px;/* 与区域标题的间距 */
+}
+.card {/* 单张玻璃拟态卡片 */
+  background: var(--glass-bg);/* 半透明玻璃背景 */
+  border: 1px solid var(--glass-border);/* 半透明细边框 */
+  border-radius: var(--radius-lg);/* 大圆角 */
+  padding: 28px;/* 内边距 */
+  backdrop-filter: blur(var(--glass-blur));/* 毛玻璃模糊 */
+  transition: transform 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;/* 悬停动效的过渡 */
+}
+.card:hover {/* 鼠标悬停卡片时 */
+  transform: translateY(-6px);/* 向上浮起 6px */
+  border-color: rgba(76, 201, 240, 0.5);/* 边框点亮成青色 */
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.35);/* 底部深色投影，浮起感 */
+}
+.card-icon {/* 卡片顶部的 emoji 图标 */
+  font-size: 1.8rem;/* 图标大小 */
+}
+.card h3 {/* 卡片标题 */
+  margin: 14px 0 8px;/* 与图标和正文的间距 */
+  font-size: 1.1rem;/* 字号 */
+}
+.card p {/* 卡片正文 */
+  color: var(--text-sub);/* 灰蓝色说明文字 */
+  font-size: 0.92rem;/* 字号 */
+  line-height: 1.7;/* 行高 */
+}
+
+/* ============================================================
+   第 7 部分：页脚 + 主页面入场动画 + 手机端适配
+   ============================================================ */
+.footer {
+  padding: 30px 24px 40px;/* 内边距 */
+  text-align: center;/* 居中 */
+  color: var(--text-sub);/* 弱化颜色 */
+  font-size: 0.85rem;/* 小字号 */
+  border-top: 1px solid var(--glass-border);/* 顶部一条分隔细线 */
+}
+.reveal {/* 主页面元素的入场动画初始状态：下移 + 透明 */
+  opacity: 0;/* 完全透明 */
+  transform: translateY(26px);/* 向下偏移 26px */
+  transition: opacity 0.8s ease, transform 0.8s ease;/* 进入画面时的过渡 */
+}
+body.revealed .reveal {/* 欢迎页淡出的同时，JS 给 body 加 revealed 类 → 元素上浮显现 */
+  opacity: 1;/* 恢复不透明 */
+  transform: translateY(0);/* 回到原位 */
+}
+.delay-1 { transition-delay: 0.12s; }/* 第二个元素延迟 0.12 秒出现，形成错落感 */
+.delay-2 { transition-delay: 0.24s; }/* 第三个元素延迟 0.24 秒 */
+.delay-3 { transition-delay: 0.36s; }/* 第四个元素延迟 0.36 秒 */
+@media (max-width: 768px) {/* 手机端适配：屏幕宽度小于 768px 时生效 */
+  .nav-links {/* 手机上隐藏导航链接 */
+    display: none;/* 隐藏；以后想做汉堡菜单，可在这里扩展 */
+  }
+  .hero {/* 手机上首屏 */
+    min-height: 78vh;/* 稍矮一些，留出卡片预览空间 */
+    padding-top: 40px;/* 顶部留白略小 */
+  }
+  .cards-grid {/* 手机上卡片网格 */
+    gap: 16px;/* 卡片间距缩小 */
+  }
+}
+
+/* ============================================================
+   第 8 部分：登录 / 注册弹窗（玻璃拟态卡片）+ 通用工具类
+   ============================================================ */
+.hidden {/* 通用隐藏工具类：JS 用它切换元素的显示 / 隐藏 */
+  display: none !important;/* !important 确保能覆盖元素自身的 display 设置 */
+}
+.navbar button, .modal-card button, .modal-input {/* 导航与弹窗里的按钮、输入框 */
+  font-family: inherit;/* 按钮和输入框默认不继承页面字体，这里强制继承，保持风格统一 */
+}
+.user-chip {/* 补充：用户胶囊里“用户名”与“退出”的间距 */
+  gap: 10px;/* 弹性子元素之间的间距 */
+}
+.modal-overlay {/* 弹窗的半透明遮罩层：盖住整个屏幕 */
+  position: fixed;/* 固定定位铺满视口 */
+  inset: 0;/* 铺满整个屏幕 */
+  z-index: 9998;/* 比主页面高、比欢迎页（9999）低 */
+  display: flex;/* 弹性布局 */
+  align-items: center;/* 垂直居中 */
+  justify-content: center;/* 水平居中 */
+  background: rgba(5, 7, 15, 0.6);/* 深色半透明遮罩，弱化背景内容 */
+  backdrop-filter: blur(6px);/* 遮罩再加一层模糊，让视线聚焦弹窗 */
+  -webkit-backdrop-filter: blur(6px);/* Safari 私有前缀写法 */
+  opacity: 0;/* 默认完全透明（隐藏状态） */
+  visibility: hidden;/* 同时不可见 */
+  pointer-events: none;/* 隐藏时不拦截鼠标 */
+  transition: opacity 0.3s ease, visibility 0s linear 0.3s;/* 淡入淡出；隐藏时 visibility 延迟 0.3 秒再消失 */
+}
+.modal-overlay.show {/* JS 打开弹窗时加上 show 类 */
+  opacity: 1;/* 淡入到不透明 */
+  visibility: visible;/* 恢复可见 */
+  pointer-events: auto;/* 恢复鼠标响应 */
+  transition: opacity 0.3s ease;/* 显示时只过渡透明度 */
+}
+.modal-card {/* 弹窗中央的玻璃卡片 */
+  width: min(400px, 90vw);/* 宽度：桌面最大 400px，手机不超过 90% 屏宽 */
+  position: relative;/* 作为关闭按钮绝对定位的参照 */
+  background: rgba(16, 20, 42, 0.9);/* 深色半透明卡片底 */
+  border: 1px solid var(--glass-border);/* 半透明细边框 */
+  border-radius: var(--radius-lg);/* 大圆角 */
+  padding: 34px 30px 30px;/* 内边距，留出呼吸空间 */
+  backdrop-filter: blur(var(--glass-blur));/* 毛玻璃模糊 */
+  -webkit-backdrop-filter: blur(var(--glass-blur));/* Safari 前缀写法 */
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.5);/* 大范围深色投影，制造悬浮感 */
+  transform: translateY(14px) scale(0.98);/* 隐藏时略微下移缩小，作为弹出动画的起点 */
+  transition: transform 0.3s ease;/* 弹出时平滑复位 */
+}
+.modal-overlay.show .modal-card {/* 弹窗打开时 */
+  transform: none;/* 回到原位、原始大小 */
+}
+.modal-close {/* 弹窗右上角的 ✕ 关闭按钮 */
+  position: absolute;/* 绝对定位到卡片右上角 */
+  top: 14px;/* 距顶部 14px */
+  right: 14px;/* 距右侧 14px */
+  border: none;/* 去掉按钮默认边框 */
+  background: none;/* 去掉按钮默认背景 */
+  color: var(--text-sub);/* 灰蓝色 */
+  font-size: 1.1rem;/* 字号 */
+  cursor: pointer;/* 手形光标 */
+}
+.modal-close:hover {/* 悬停关闭按钮时 */
+  color: var(--text-main);/* 变亮提示可点击 */
+}
+.modal-title {/* 弹窗标题（登录 / 创建账号） */
+  text-align: center;/* 居中 */
+  font-size: 1.4rem;/* 字号 */
+  margin-bottom: 20px;/* 与下方内容的间距 */
+}
+.modal-tabs {/* 登录 / 注册 切换标签容器（胶囊凹槽） */
+  display: flex;/* 横向排列 */
+  gap: 6px;/* 两个标签之间的间距 */
+  padding: 4px;/* 内边距，给高亮胶囊留空间 */
+  margin-bottom: 20px;/* 与输入区的间距 */
+  background: rgba(255, 255, 255, 0.05);/* 极淡的凹槽底色 */
+  border-radius: 999px;/* 胶囊形凹槽 */
+}
+.modal-tab {/* 单个切换标签按钮 */
+  flex: 1;/* 平分容器宽度 */
+  padding: 8px 0;/* 上下内边距 */
+  border: none;/* 去掉按钮默认边框 */
+  border-radius: 999px;/* 胶囊形 */
+  background: transparent;/* 默认透明背景 */
+  color: var(--text-sub);/* 默认灰蓝色文字 */
+  font-size: 0.92rem;/* 字号 */
+  cursor: pointer;/* 手形光标 */
+  transition: all 0.25s ease;/* 切换高亮时平滑过渡 */
+}
+.modal-tab.active {/* 当前选中的标签 */
+  background: linear-gradient(135deg, var(--accent-1), var(--accent-2));/* 渐变高亮背景 */
+  color: #ffffff;/* 白色文字 */
+}
+.modal-input {/* 弹窗内的输入框 */
+  width: 100%;/* 占满卡片宽度 */
+  margin-bottom: 14px;/* 输入框之间的间距 */
+  padding: 12px 14px;/* 内边距 */
+  border-radius: var(--radius-sm);/* 小圆角 */
+  background: rgba(255, 255, 255, 0.06);/* 半透明输入底色 */
+  border: 1px solid var(--glass-border);/* 半透明边框 */
+  color: var(--text-main);/* 输入文字颜色 */
+  font-size: 0.95rem;/* 字号 */
+  outline: none;/* 去掉浏览器默认聚焦描边，用边框变色代替 */
+  transition: border-color 0.25s ease;/* 聚焦时边框颜色平滑变化 */
+}
+.modal-input:focus {/* 输入框获得焦点时 */
+  border-color: var(--accent-1);/* 边框点亮成青色 */
+}
+.modal-input::placeholder {/* 输入框里的占位提示文字 */
+  color: rgba(152, 162, 200, 0.6);/* 半透明的灰蓝色 */
+}
+.modal-msg {/* 弹窗内的提示文字（错误 / 成功） */
+  min-height: 1.2em;/* 预留高度，提示出现时布局不抖动 */
+  margin: 2px 0 14px;/* 与上下的间距 */
+  font-size: 0.85rem;/* 小字号 */
+  text-align: center;/* 居中 */
+  color: var(--text-sub);/* 默认灰色 */
+}
+.modal-msg.error {/* 错误提示 */
+  color: #ff7a8a;/* 红粉色 */
+}
+.modal-msg.ok {/* 成功提示 */
+  color: #5ee6a8;/* 绿色 */
+}
+.modal-submit {/* 弹窗底部的提交按钮（复用主按钮的渐变样式） */
+  width: 100%;/* 占满卡片宽度 */
+  padding: 13px 0;/* 上下内边距（覆盖主按钮的左右 44px 内边距） */
+  border: none;/* 去掉按钮默认边框 */
+  cursor: pointer;/* 手形光标 */
+  font-size: 1rem;/* 字号 */
+}
+
+/* ============================================================
+   第 9 部分：后台管理面板（在登录弹窗样式的基础上扩展）
+   ============================================================ */
+.modal-card.wide {/* 后台面板用的宽卡片（覆盖 .modal-card 的窄宽度） */
+  width: min(760px, 94vw);/* 桌面最大 760px，手机上仍留出边距 */
+  max-height: 86vh;/* 限制高度，内容多时改为卡片内部滚动 */
+  overflow-y: auto;/* 纵向滚动 */
+}
+.admin-stats {/* 顶部统计格的网格 */
+  display: grid;/* 网格布局 */
+  grid-template-columns: repeat(3, 1fr);/* 三等分列 */
+  gap: 12px;/* 格子间距 */
+  margin-bottom: 22px;/* 与下方表格的间距 */
+}
+.admin-stat {/* 单个统计格 */
+  padding: 14px 10px;/* 内边距 */
+  text-align: center;/* 内容居中 */
+  border: 1px solid var(--glass-border);/* 半透明细边框 */
+  border-radius: var(--radius-sm);/* 小圆角 */
+  background: rgba(255, 255, 255, 0.05);/* 极淡底色 */
+}
+.admin-stat b {/* 统计数字 */
+  display: block;/* 独占一行 */
+  margin-bottom: 2px;/* 与名称的间距 */
+  font-size: 1.6rem;/* 大号数字 */
+  background: linear-gradient(120deg, var(--accent-1), var(--accent-2));/* 与主标题同款渐变 */
+  -webkit-background-clip: text;/* 裁剪到文字区域（WebKit 写法） */
+  background-clip: text;/* 标准写法 */
+  -webkit-text-fill-color: transparent;/* 填充色透明，露出渐变 */
+  color: transparent;/* 兜底 */
+}
+.admin-stat span {/* 统计项名称 */
+  font-size: 0.78rem;/* 小字号 */
+  color: var(--text-sub);/* 灰蓝色 */
+}
+.admin-scroll {/* 表格外层滚动容器 */
+  overflow-x: auto;/* 窄屏时表格横向滚动，而不是把卡片撑破 */
+}
+.admin-table {/* 用户列表表格 */
+  width: 100%;/* 占满容器 */
+  border-collapse: collapse;/* 合并相邻边框，避免双线 */
+  font-size: 0.85rem;/* 略小字号，容纳六列 */
+}
+.admin-table th, .admin-table td {/* 表头与单元格的公共样式 */
+  padding: 9px 10px;/* 内边距 */
+  text-align: left;/* 左对齐 */
+  white-space: nowrap;/* 不换行，避免时间被折成两行 */
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);/* 行间分隔细线 */
+}
+.admin-table th {/* 表头 */
+  font-weight: 600;/* 稍粗 */
+  color: var(--text-sub);/* 灰蓝色 */
+}
+.tag-admin {/* “管理员”角色小标签 */
+  display: inline-block;/* 让内边距与圆角生效 */
+  padding: 2px 9px;/* 内边距 */
+  border-radius: 999px;/* 胶囊形 */
+  background: linear-gradient(135deg, var(--accent-1), var(--accent-2));/* 渐变底 */
+  color: #ffffff;/* 白字 */
+  font-size: 0.72rem;/* 小字号 */
+}
+.row-del {/* 行内“删除”按钮 */
+  padding: 4px 12px;/* 紧凑内边距 */
+  border: 1px solid rgba(255, 122, 138, 0.4);/* 红色半透明描边 */
+  border-radius: 999px;/* 胶囊形 */
+  background: transparent;/* 透明底 */
+  color: #ff7a8a;/* 与错误提示同色系 */
+  font-size: 0.78rem;/* 小字号 */
+  cursor: pointer;/* 手形光标 */
+  transition: all 0.2s ease;/* 悬停平滑过渡 */
+}
+.row-del:hover:not(:disabled) {/* 悬停在可点击的删除按钮时 */
+  background: rgba(255, 122, 138, 0.14);/* 浮现淡红底 */
+}
+.row-del.confirming {/* 第一次点击后的“待确认”状态（再点一次才真的删） */
+  background: rgba(255, 122, 138, 0.22);/* 底色加重，与平时区分 */
+  border-color: #ff7a8a;/* 描边变实 */
+  box-shadow: 0 0 12px rgba(255, 122, 138, 0.3);/* 轻微发光，提示“在等你第二下” */
+}
+.row-del:disabled {/* 管理员那一行的禁用态 */
+  opacity: 0.32;/* 淡化 */
+  cursor: not-allowed;/* 禁止光标 */
+}
+.admin-actions {/* 面板底部操作区 */
+  display: flex;/* 横向排列 */
+  gap: 10px;/* 按钮间距 */
+  justify-content: flex-end;/* 靠右对齐 */
+  margin-top: 20px;/* 与表格的间距 */
+}
+.btn-mini {/* 面板里的次要按钮 */
+  padding: 9px 24px;/* 内边距 */
+  border: 1px solid var(--glass-border);/* 半透明描边 */
+  border-radius: var(--radius-sm);/* 小圆角 */
+  background: rgba(255, 255, 255, 0.06);/* 极淡底色 */
+  color: var(--text-main);/* 亮白文字 */
+  font-size: 0.88rem;/* 字号 */
+  cursor: pointer;/* 手形光标 */
+  transition: border-color 0.25s ease;/* 悬停时描边变色 */
+}
+.btn-mini:hover {/* 悬停时 */
+  border-color: var(--accent-1);/* 描边点亮成青色 */
+}
+@media (max-width: 768px) {/* 手机端：后台面板做减法 */
+  .admin-stats {/* 统计格 */
+    gap: 8px;/* 间距收紧 */
+  }
+  .admin-stat b {/* 统计数字 */
+    font-size: 1.25rem;/* 字号缩小 */
+  }
+  .admin-table th:nth-child(3), .admin-table td:nth-child(3) {/* “注册时间”列 */
+    display: none;/* 隐藏，把横向空间留给关键列 */
+  }
+}
+
+/* ============================================================
+   第 10 部分：全栈版新增的小元素
+   ============================================================ */
+.top-alert {/* 顶部提示条：后端连不上、或后台操作失败时显示 */
+  position: fixed;/* 固定吸顶，滚动时也留在眼前 */
+  top: 0;/* 贴在页面最上方 */
+  left: 50%;/* 先移到水平中心 */
+  transform: translateX(-50%);/* 再回退自身一半宽度，实现居中 */
+  z-index: 10001;/* 高于弹窗（9998）与欢迎页（9999），保证任何时候都能看见 */
+  max-width: 94vw;
+  padding: 10px 22px;/* 内边距 */
+  border-radius: 0 0 var(--radius-sm) var(--radius-sm);/* 只有底部两个角是圆的 */
+  background: rgba(255, 122, 138, 0.14);/* 淡红底 */
+  border: 1px solid rgba(255, 122, 138, 0.45);/* 红色描边 */
+  border-top: none;/* 顶部贴边，不需要描边 */
+  color: #ff7a8a;/* 与错误提示同色系 */
+  font-size: 0.85rem;/* 小字号 */
+  line-height: 1.6;
+  text-align: center;
+}
+.top-alert code {/* 提示里的命令片段 */
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-main);
+  font-family: Consolas, Menlo, monospace;
+}
+.dot-online {/* 用户名后面的在线小圆点：该账号还有未过期的登录会话 */
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-left: 7px;
+  border-radius: 50%;
+  background: #5ee6a8;/* 绿色 = 在线 */
+  box-shadow: 0 0 8px rgba(94, 230, 168, 0.8);
+  vertical-align: middle;
+}
+.admin-hint {/* 后台面板里的一行补充说明 */
+  margin-top: 14px;
+  font-size: 0.78rem;
+  line-height: 1.7;
+  color: var(--text-sub);
+}
+.admin-loading {/* 表格等待后端返回时的占位单元格 */
+  text-align: center;
+  color: var(--text-sub);
+  padding: 18px 0 !important;
+}

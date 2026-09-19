@@ -1,0 +1,11 @@
+# 本机真实配置：里面有数据库口令，绝不提交
+src/config.local.php
+
+# 安装脚本生成的运行时文件
+database/*.bak
+
+# 编辑器 / 系统杂项
+.vscode/
+.idea/
+Thumbs.db
+.DS_Store

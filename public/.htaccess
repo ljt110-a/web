@@ -1,0 +1,13 @@
+RewriteEngine On
+RewriteBase /
+
+# 真实存在的文件与目录（css / js / 图片）由 Apache 直接返回，性能最好
+RewriteCond %{REQUEST_FILENAME} -f [OR]
+RewriteCond %{REQUEST_FILENAME} -d
+RewriteRule ^ - [L]
+
+# 其余全部交给前置控制器：/api/* 走接口，其它走首页
+RewriteRule ^ index.php [L]
+
+# 列目录会造成源码结构泄露
+Options -Indexes

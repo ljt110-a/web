@@ -1,0 +1,153 @@
+<!DOCTYPE html><!-- 文档类型声明：告诉浏览器用最新的 HTML5 标准来解析本页 -->
+<html lang="zh-CN"><!-- 网页根标签；lang="zh-CN" 声明页面为简体中文，利于搜索引擎和读屏软件识别 -->
+<head><!-- 头部区域：存放页面的“设置信息”，这里的内容不会显示在页面上 -->
+  <meta charset="UTF-8"><!-- 字符编码为 UTF-8，保证中文正常显示不乱码 -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"><!-- 视口设置：页面宽度等于设备屏幕宽度、初始缩放为 1，这是手机适配的关键 -->
+  <title>我的空间 · 全栈示例</title><!-- 浏览器标签页上显示的标题文字（可随意修改） -->
+  <!-- 按全栈项目的惯例，样式与脚本从页面里拆了出去：
+       public/assets/css/style.css 对应原来的 <style>，public/assets/js/app.js 对应原来的 <script> -->
+  <link rel="stylesheet" href="assets/css/style.css">
+</head>
+
+<body class="lock"><!-- 页面加载时先锁定滚动，欢迎页结束后由 JS 移除 lock 类 -->
+
+  <!-- 若浏览器禁用了 JavaScript，直接隐藏欢迎页，保证主页面可见 -->
+  <noscript><style>#welcome-screen{display:none}body.lock{overflow:auto}</style></noscript>
+
+  <!-- 顶部提示条：默认隐藏，只有后端连不上或接口报错时由 JS 填内容并显示 -->
+  <div class="top-alert hidden" id="top-alert" role="alert"></div>
+
+  <!-- ============================================================
+       全屏欢迎页：中央“欢迎回来”打字机 + 闪烁光标
+       ============================================================ -->
+  <div id="welcome-screen"><!-- 覆盖全屏的欢迎层，层级最高 -->
+    <div class="welcome-orb orb-1"></div><!-- 背景光斑 1（装饰，可删除） -->
+    <div class="welcome-orb orb-2"></div><!-- 背景光斑 2（装饰，可删除） -->
+    <div class="welcome-text-wrapper"><!-- 包住文字与光标，保持同行居中 -->
+      <span class="welcome-text" id="welcome-text"></span><!-- 打字机文字由 JS 逐字填入 -->
+      <span class="cursor" id="cursor"></span><!-- 闪烁光标，跟在文字后面 -->
+    </div>
+    <p class="enter-hint" id="enter-hint">— 点击任意位置进入 —</p><!-- 仅在关闭“自动进入”时显示 -->
+  </div>
+
+  <!-- ============================================================
+       主页面：欢迎页淡出后展现的内容
+       ============================================================ -->
+  <div id="main-page">
+
+    <!-- 顶部导航栏：想加链接就在 .nav-links 里复制一个 <li><a> 即可 -->
+    <nav class="navbar"><!-- sticky 吸顶的玻璃导航 -->
+      <div class="logo">我的空间<span class="logo-dot">.</span></div><!-- 左上角站点名，可改成你的名字 -->
+      <div class="nav-right"><!-- 右侧区域：导航链接 + 登录状态 -->
+        <ul class="nav-links"><!-- 导航链接 -->
+          <li><a href="#home">首页</a></li><!-- 导航项 1：点击平滑滚动到首屏 -->
+          <li><a href="#cards">功能</a></li><!-- 导航项 2：点击滚动到卡片区域 -->
+          <li><a href="#about">关于</a></li><!-- 导航项 3：占位，可改成任意链接 -->
+        </ul>
+        <div class="nav-actions"><!-- “关于”右侧的操作区：未登录显示登录按钮，已登录显示用户胶囊 -->
+          <button class="login-btn" id="nav-login" type="button">登录</button><!-- 登录入口：点击弹出登录/注册弹窗 -->
+          <button class="login-btn hidden" id="nav-admin" type="button">后台</button><!-- 管理入口：默认隐藏，/api/me 返回 role=admin 时才由 JS 显示 -->
+          <div class="user-chip hidden" id="nav-user"><!-- 已登录时显示：用户名 + 退出 -->
+            <span id="nav-username">你好</span><!-- JS 会自动填入“你好，用户名” -->
+            <button class="logout-btn" id="nav-logout" type="button">退出</button><!-- 点击退出登录 -->
+          </div>
+        </div>
+      </div>
+    </nav>
+
+    <!-- 首屏主视觉区：徽章 + 大标题 + 副标题 + 按钮（简洁首页区域） -->
+    <header class="hero" id="home"><!-- 页面首屏 -->
+      <span class="hero-badge reveal">✦ 全栈版：页面 + PHP 接口 + MySQL</span><!-- 顶部小徽章：文字可随意修改 -->
+      <h1 class="reveal delay-1">欢迎来到<span class="gradient-text">我的空间</span></h1><!-- 大标题：渐变部分换成你想强调的词 -->
+      <p class="subtitle reveal delay-2">这是一个真正跑得起来的全栈起始模板：暗色主题与玻璃拟态留在前端，账号、密码、登录状态和访问计数全部交给后端接口与 MySQL 保存。想改配色，改 assets/css/style.css 顶部的变量即可。</p><!-- 副标题说明文字 -->
+      <a class="btn-primary reveal delay-3" href="#cards">开始探索 ↓</a><!-- 主按钮：当前是滚动到卡片区，可改成任意链接 -->
+    </header>
+
+    <!-- 示例卡片区域：想加卡片就复制一个 <div class="card">；不需要可整段删除 -->
+    <section class="cards-section" id="cards"><!-- 卡片区域（id 用于锚点跳转） -->
+      <h2 class="reveal">这一版由三层组成</h2><!-- 区域标题 -->
+      <div class="cards-grid"><!-- 卡片网格 -->
+        <div class="card reveal"><!-- 卡片 1：前端 -->
+          <div class="card-icon">🎨</div><!-- 卡片图标（emoji，可换成图片） -->
+          <h3>前端页面</h3><!-- 卡片标题 -->
+          <p>public/ 目录下的静态页面，只负责展示与交互；所有数据都通过 fetch 调 /api/* 获取，不再存在浏览器里。</p><!-- 卡片正文 -->
+        </div>
+        <div class="card reveal delay-1"><!-- 卡片 2：后端 -->
+          <div class="card-icon">🖥️</div><!-- 卡片图标 -->
+          <h3>后端接口</h3><!-- 卡片标题 -->
+          <p>PHP 写的注册、登录、退出与后台接口；密码用 bcrypt 加盐哈希保存，登录状态靠服务端会话表校验。</p><!-- 卡片正文 -->
+        </div>
+        <div class="card reveal delay-2"><!-- 卡片 3：数据库 -->
+          <div class="card-icon">🗄️</div><!-- 卡片图标 -->
+          <h3>MySQL 数据库</h3><!-- 卡片标题 -->
+          <p>users / sessions / visits 三张表，全部用预处理参数写入；换电脑、换浏览器看到的都是同一份数据。</p><!-- 卡片正文 -->
+        </div>
+      </div>
+    </section>
+
+    <!-- 页脚：版权信息 -->
+    <footer class="footer" id="about"><!-- 页脚区域 -->
+      © 2026 我的空间 · 前端 + PHP + MySQL · 本站累计访问 <span id="visit-count">—</span> 次<!-- 版权文字 + 访问计数（数值由后端从 visits 表统计，所有人共享） -->
+    </footer>
+  </div>
+
+  <!-- ============================================================
+       登录 / 注册弹窗：点击导航栏“登录”按钮弹出（玻璃拟态卡片）
+       ============================================================ -->
+  <div class="modal-overlay" id="login-modal"><!-- 半透明模糊遮罩层（点击空白处可关闭） -->
+    <div class="modal-card"><!-- 居中的玻璃卡片 -->
+      <button class="modal-close" id="login-close" type="button">✕</button><!-- 右上角关闭按钮 -->
+      <h3 class="modal-title" id="modal-title">欢迎回来</h3><!-- 弹窗标题，随登录/注册模式切换 -->
+      <div class="modal-tabs"><!-- 登录 / 注册 切换标签 -->
+        <button class="modal-tab active" id="tab-login" type="button">登录</button><!-- 登录标签，默认选中 -->
+        <button class="modal-tab" id="tab-register" type="button">注册</button><!-- 注册标签 -->
+      </div>
+      <input class="modal-input" id="input-username" placeholder="用户名（2~20 个字符）" autocomplete="username"><!-- 用户名输入框 -->
+      <input class="modal-input" id="input-password" type="password" placeholder="密码（至少 6 位）" autocomplete="current-password"><!-- 密码输入框（输入内容显示为圆点） -->
+      <input class="modal-input hidden" id="input-confirm" type="password" placeholder="确认密码" autocomplete="new-password"><!-- 确认密码框，仅注册模式显示 -->
+      <p class="modal-msg" id="modal-msg"></p><!-- 提示文字：错误红色 / 成功绿色 -->
+      <button class="btn-primary modal-submit" id="modal-submit" type="button">登 录</button><!-- 提交按钮：随模式执行登录或注册 -->
+    </div>
+  </div>
+
+  <!-- ============================================================
+       后台管理面板：只有管理员（root）登录后才能打开
+       ============================================================ -->
+  <div class="modal-overlay" id="admin-modal"><!-- 复用登录弹窗的遮罩样式 -->
+    <div class="modal-card wide"><!-- 加 wide 类 → 比登录弹窗更宽 -->
+      <button class="modal-close" id="admin-close" type="button">✕</button><!-- 右上角关闭 -->
+      <h3 class="modal-title">后台管理</h3><!-- 面板标题 -->
+      <div class="admin-stats"><!-- 顶部三个统计格，数值由 JS 填入 -->
+        <div class="admin-stat"><b id="stat-visits">0</b><span>累计访问</span></div>
+        <div class="admin-stat"><b id="stat-today">0</b><span>今日访问</span></div>
+        <div class="admin-stat"><b id="stat-users">0</b><span>注册用户</span></div>
+      </div>
+      <div class="admin-scroll"><!-- 外层容器：窄屏时表格横向滚动，不撑破卡片 -->
+        <table class="admin-table"><!-- 用户列表 -->
+          <thead><!-- 表头 -->
+            <tr>
+              <th>用户名</th><!-- 列 1 -->
+              <th>角色</th><!-- 列 2 -->
+              <th>注册时间</th><!-- 列 3 -->
+              <th>最后登录</th><!-- 列 4 -->
+              <th>登录次数</th><!-- 列 5 -->
+              <th>操作</th><!-- 列 6 -->
+            </tr>
+          </thead>
+          <tbody id="admin-user-rows"><!-- 数据行全部由 JS 生成 --></tbody>
+        </table>
+      </div>
+      <div class="admin-actions"><!-- 面板底部操作区 -->
+        <button class="btn-mini" id="admin-refresh" type="button">刷新</button><!-- 重新向后端要一份最新数据 -->
+      </div>
+      <p class="admin-hint"><!-- 一行说明，提醒这些数据来自真实数据库 -->
+        数据来自 MySQL 的 <code>users</code> / <code>visits</code> 表；用户名一律按纯文本渲染，
+        所以注册一个 <b>&lt;img src=x onerror=alert(1)&gt;</b> 这样的账号也不会执行脚本。
+      </p>
+    </div>
+  </div>
+
+  <!-- 所有数据都通过 /api/* 由后端提供：见 src/api.php 的接口清单 -->
+  <script src="assets/js/app.js" defer></script>
+</body>
+</html>
