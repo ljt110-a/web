@@ -1,0 +1,61 @@
+<!DOCTYPE html><!-- 离线兜底页：只在「网络不通 + 缓存里也没有这一页」时由 sw.js 拿出来。
+     所以这一页必须**自包含**：样式全写在里面，不引任何外部静态资源，
+     否则它自己就会因为拉不到 CSS 而变成一张白页。 -->
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#0a0d1c">
+  <title>离线中 · 我的空间</title>
+  <!-- CSP 的 script-src 是 'self'，这里不能有内联脚本，也不能写 onclick：
+       「重试」用一个普通链接实现，点它就是把请求重新发一遍 -->
+  <style>
+    html, body { height: 100%; }
+    body {
+      margin: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      background: #0a0d1c;
+      color: #eef2ff;
+      font-family: "Segoe UI", "Microsoft YaHei", system-ui, sans-serif;
+      text-align: center;
+    }
+    .card { max-width: 420px; }
+    .mark {
+      width: 88px;
+      height: 88px;
+      margin: 0 auto 22px;
+      border-radius: 22px;
+      background: linear-gradient(135deg, #4cc9f0, #7b5cff 55%, #ff6b9d);
+      opacity: .9;
+    }
+    h1 { margin: 0 0 12px; font-size: 1.4rem; font-weight: 600; }
+    p { margin: 0 0 8px; color: #aab3d6; font-size: .92rem; line-height: 1.7; }
+    a {
+      display: inline-block;
+      margin-top: 22px;
+      padding: 11px 30px;
+      border: 1px solid rgba(255, 255, 255, .18);
+      border-radius: 12px;
+      background: rgba(255, 255, 255, .06);
+      color: #eef2ff;
+      font-size: .9rem;
+      text-decoration: none;
+    }
+    a:hover { border-color: #4cc9f0; color: #4cc9f0; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="mark"></div>
+    <h1>现在连不上后端</h1>
+    <p>这台设备当前没有网络，或者服务器没在跑。</p>
+    <p>之前打开过的页面还留在缓存里，从下面的入口进去就能看到它们——只有最新数据取不到。
+       从来没打开过的页面第一次仍然要联网。</p>
+    <a href="/">回到首页</a>
+    <a href="/games">游戏板块</a>
+  </div>
+</body>
+</html>

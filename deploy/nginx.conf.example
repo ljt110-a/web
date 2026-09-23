@@ -1,0 +1,138 @@
+# web-one 的 Nginx 站点配置示例
+#
+# 放到 /etc/nginx/conf.d/web-one.conf（或 sites-available/ 里再软链接），
+# 把 example.com 与 PHP-FPM 的 socket 路径换成你自己的。
+# 用 Apache 的话看 public/.htaccess，逻辑与此等价。
+
+# ------------------------------------------------------------
+# HTTP：全部跳转到 HTTPS
+# ——为什么必须先做这一步：登录 Cookie 只有在 HTTPS 上才是安全的，
+#   明文 HTTP 下密码和会话令牌都是裸奔的。
+# ------------------------------------------------------------
+server {
+    listen      80;
+    listen      [::]:80;
+    server_name example.com;
+
+    # Let's Encrypt 的续期校验需要走 /.well-known/
+    location /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+    }
+
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
+
+# ------------------------------------------------------------
+# HTTPS：真正对外服务的那个 server 块
+# ------------------------------------------------------------
+server {
+    listen      443 ssl;
+    listen      [::]:443 ssl;
+    http2       on;
+    server_name example.com;
+
+    # ---------- 站点根目录必须是 public/ ----------
+    # src/ 与 database/ 都在它之外，浏览器访问不到，
+    # 所以 config.local.php 和全部后端源码都不会被下载走。
+    # 把 root 指到项目根目录是部署这个项目最常见的错误。
+    root  /var/www/web-one/public;
+    index index.php;
+
+    ssl_certificate     /etc/letsencrypt/live/example.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/example.com/privkey.pem;
+    ssl_protocols       TLSv1.2 TLSv1.3;
+    ssl_ciphers         HIGH:!aNULL:!MD5;
+    ssl_session_cache   shared:SSL:10m;
+    ssl_session_timeout 1d;
+
+    # 一次小说导入就是一个 JSON 请求体，而**单本没有字数上限**（限的是账号总量，
+    # 那道门槛在 PHP 侧，nginx 管不着），所以这一行放的其实是「允许一次传多大的文件进来」。
+    # 中文 UTF-8 一个字 3 字节：300 万字 ≈ 9 MB，1000 万字 ≈ 30 MB，
+    # 换行与引号转义在整本书里只多出万分之几，可以忽略。
+    # 32m 放过的是「比任何真实连载都长」的一本整书；还想再往上就得同时看 PHP 的 memory_limit
+    # （实测 570 万字的分章过程峰值 80 MB，约 14 字节 / 字，256M 撑不到 2000 万字），
+    # 以及 php.ini 的 post_max_size——两头不一致只会更难查。
+    # 太小则是一页 Nginx 的 413，用户看不到站内任何提示，只以为「点了没反应」。
+    client_max_body_size 32m;
+
+    # 关于「服务端不落盘」这句话的边界：站点代码确实从不把正文写成文件、也从不 exec 它，
+    # 但超过 client_body_buffer_size（默认 16k）的请求体，nginx 会先写进 client_body_temp
+    # 再转给 PHP-FPM。那是 nginx 的临时文件，不是应用的数据，权限与清理由它自己负责。
+
+    # ---------- 安全响应头 ----------
+    # 与 src/security.php 的 security_headers() 保持一致：
+    # 走 PHP 的动态响应两边都会设，Nginx 直接返回的静态资源只有这里能覆盖到。
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-Frame-Options "DENY" always;
+    add_header Referrer-Policy "same-origin" always;
+    add_header Permissions-Policy "geolocation=(), microphone=(), camera=()" always;
+    add_header Content-Security-Policy "default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; img-src 'self' data:; connect-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'" always;
+
+    # 确认全站 HTTPS 正常之后再打开 HSTS。
+    # 一旦下发，浏览器在 max-age 内会拒绝用 http 访问你的域名，回退很麻烦。
+    # add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+
+    # ---------- 静态资源：由 Nginx 直接返回 ----------
+    location /assets/ {
+        expires 7d;
+        add_header Cache-Control "public";
+        access_log off;
+        try_files $uri =404;
+    }
+
+    # ---------- 其它一切交给前置控制器 ----------
+    # /api/* 会被 public/index.php 转给 src/api.php，其余返回首页。
+    location / {
+        try_files $uri $uri/ /index.php?$query_string;
+    }
+
+    location ~ \.php$ {
+        # 只允许执行 public/ 下的 PHP；public/ 里其实只有 index.php 一个，
+        # 其余源码在项目根目录，不在 document_root 之内，天然访问不到。
+        try_files $uri =404;
+
+        include        fastcgi_params;
+        fastcgi_pass   unix:/run/php/php7.4-fpm.sock;   # ← 按实际的 PHP-FPM 地址改
+        fastcgi_param  SCRIPT_FILENAME $document_root$fastcgi_script_name;
+        fastcgi_param  HTTPS on;                        # 让 is_https() 认得出当前是 HTTPS
+        fastcgi_read_timeout 30s;
+
+        # 不要把 PHP 版本暴露出去
+        fastcgi_hide_header X-Powered-By;
+    }
+
+    # ---------- 兜底：这些后缀本来就不该出现在 public/ 里 ----------
+    location ~* \.(sql|log|bak|ini|md|json|lock|ya?ml|env)$ {
+        deny all;
+    }
+    location ~ /\. {
+        deny all;
+    }
+}
+
+# ============================================================
+# 环境变量怎么传给 PHP
+# ============================================================
+#
+# 这个项目的配置支持用 WEB_ONE_* 环境变量覆盖文件里的值（见 src/config.php）。
+# 但 PHP-FPM **不会**继承 shell 的环境变量，必须在 pool 配置里显式声明：
+#
+#   /etc/php/7.4/fpm/pool.d/www.conf
+#   ------------------------------------------------------------
+#   env[WEB_ONE_ENV]        = production
+#   env[WEB_ONE_DB_PASS]    = 你的数据库口令
+#   env[WEB_ONE_APP_URL]    = https://example.com
+#   env[WEB_ONE_MAIL_DRIVER]= smtp
+#   env[WEB_ONE_SMTP_HOST]  = smtp.example.com
+#   env[WEB_ONE_SMTP_USER]  = 你的账号
+#   env[WEB_ONE_SMTP_PASS]  = 你的授权码
+#   ------------------------------------------------------------
+#   改完执行：systemctl reload php7.4-fpm
+#
+# 设了 WEB_ONE_ENV=production 之后，debug 会被强制关闭、Cookie 的 Secure 会被强制打开
+# （见 src/config.php 最后一段）。口令这类敏感值放环境变量，比放在能被误提交的文件里更稳。
+#
+# 另一种做法是照旧用 src/config.local.php：只要确保它不在版本控制里
+# （.gitignore 已经排除），并且 Web 服务器用户对它只有读权限。

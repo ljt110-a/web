@@ -1,0 +1,134 @@
+<!DOCTYPE html><!-- 二级页面：学习板块（番茄钟）。地址是 /study，由 public/index.php 路由过来 -->
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8"><!-- 字符编码，保证中文不乱码 -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"><!-- 手机适配 -->
+  <title>学习板块 · 我的空间</title>
+  <!-- 资源一律用绝对路径（/assets/...）：这一页的地址是 /study，
+       用相对路径的话，访问 /study/ 时会被解析成 /study/assets/... 而 404 -->
+  <link rel="manifest" href="/manifest.webmanifest"><!-- 应用清单：名字、图标、启动地址 -->
+  <link rel="icon" href="/assets/img/icon-192.png">
+  <link rel="apple-touch-icon" href="/assets/img/icon-192.png">
+  <meta name="theme-color" content="#0a0d1c"><!-- 手机状态栏 / 应用窗口的底色 -->
+  <link rel="stylesheet" href="/assets/css/style.css">
+</head>
+
+<body><!-- 和 /games 一样不挂滚动入场动画：内容页宁可一开始就全部可见 -->
+
+  <div class="top-alert hidden" id="top-alert" role="alert"></div>
+
+  <nav class="navbar">
+    <a class="logo" href="/">我的空间<span class="logo-dot">.</span></a>
+    <div class="nav-right">
+      <ul class="nav-links">
+        <li><a href="/">首页</a></li>
+        <li><a href="/games">游戏</a></li>
+        <li><a href="/study" class="nav-current">学习</a></li><!-- 当前页高亮 -->
+        <li><a href="/read">阅读</a></li>
+      </ul>
+      <div class="nav-actions">
+        <span class="user-chip hidden" id="nav-user"><!-- 已登录时由 JS 显示 -->
+          <span id="nav-username">你好</span>
+        </span>
+        <!-- 这一页没有登录弹窗：回首页带 #login，首页脚本会把登录框直接展开 -->
+        <a class="login-btn" id="study-login-link" href="/#login">登录</a>
+        <a class="login-btn" href="/">返回首页</a>
+      </div>
+    </div>
+  </nav>
+
+  <main class="page-wrap">
+
+    <header class="page-head">
+      <span class="hero-badge">二级页面 · /study</span>
+      <h1>学习板块</h1>
+      <p class="subtitle">
+        一个番茄钟：设定时长、开始、专注、结束。未登录也能计时，
+        但记录要登录才存得下来（<code>GET /api/study</code>）。
+      </p>
+      <div class="page-head-actions">
+        <a class="btn-primary" href="/">← 返回首页</a>
+      </div>
+    </header>
+
+    <!-- ---------- 番茄钟 ---------- -->
+    <section class="board-section" id="pomodoro">
+      <h2>番茄钟</h2>
+      <p class="section-hint">
+        计时按「结束时刻」算，不按 tick 累加，所以切到别的标签页也不会走慢。
+      </p>
+
+      <div class="pomo-stage">
+        <!-- 进度环：手写 SVG，一个底环 + 一个用 stroke-dashoffset 走出来的进度弧 -->
+        <div class="pomo-ring">
+          <svg viewBox="0 0 120 120" width="200" height="200" role="img" aria-label="本轮剩余时间进度">
+            <circle class="pomo-track" cx="60" cy="60" r="52"></circle>
+            <circle class="pomo-progress" id="pomo-progress" cx="60" cy="60" r="52"></circle>
+          </svg>
+          <div class="pomo-readout">
+            <b id="pomo-time">25:00</b>
+            <span id="pomo-phase">专注</span>
+          </div>
+        </div>
+
+        <div class="pomo-controls">
+          <div class="form-row">
+            <label for="pomo-subject">这一轮在做什么（选填）</label>
+            <input class="composer-input" id="pomo-subject" maxlength="40"
+                   placeholder="例如：高数第二章" autocomplete="off">
+          </div>
+          <div class="form-row">
+            <label for="pomo-minutes">时长（分钟）</label>
+            <input class="composer-input" id="pomo-minutes" type="number" min="1" max="180" value="25">
+          </div>
+          <div class="memo-filters">
+            <button class="chip" type="button" data-minutes="15">15</button>
+            <button class="chip active" type="button" data-minutes="25">25</button>
+            <button class="chip" type="button" data-minutes="45">45</button>
+          </div>
+          <div class="pomo-actions">
+            <button class="btn-primary" id="pomo-toggle" type="button">开始</button>
+            <button class="btn-mini" id="pomo-reset" type="button">重置</button>
+            <button class="btn-mini" id="pomo-break" type="button">休息 5 分钟</button>
+          </div>
+          <p class="modal-msg" id="pomo-tip"></p>
+        </div>
+      </div>
+
+      <div class="pomo-stats" id="pomo-stats">
+        <span>今日 <b id="pomo-today">0</b> 轮</span>
+        <span>累计 <b id="pomo-total">0</b> 轮</span>
+        <span>专注 <b id="pomo-minutes-total">0</b> 分钟</span>
+      </div>
+    </section>
+
+    <!-- ---------- 记录：私有数据，登录才可见 ---------- -->
+    <section class="board-section" id="pomodoro-log">
+      <h2>专注记录</h2>
+      <p class="section-hint">
+        只有你自己看得到。中途放弃的也会记下来，完成度按实际走的时间算。
+      </p>
+
+      <div class="memo-gate" id="pomo-gate">
+        <span id="pomo-gate-text">登录后即可保存并查看专注记录。</span>
+        <a class="btn-mini" href="/#login">去登录</a>
+      </div>
+
+      <div class="hidden" id="pomo-body">
+        <ul class="pomo-list" id="pomo-list"><!-- 记录由 JS 生成 --></ul>
+        <p class="list-empty hidden" id="pomo-empty">还没有记录，先跑完一轮吧。</p>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    © 2026 我的空间 · <a class="hero-link" href="/">首页</a> · 学习板块 ·
+    本站累计访问 <span id="visit-count">—</span> 次
+  </footer>
+
+  <!-- core.js 提供 api()/el()/提示条/两段式确认，必须在 study.js 之前加载 -->
+  <script src="/assets/js/core.js" defer></script>
+  <script src="/assets/js/study.js" defer></script>
+  <script src="/assets/js/pwa.js" defer></script>
+</body>
+</html>

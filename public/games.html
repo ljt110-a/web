@@ -1,0 +1,285 @@
+<!DOCTYPE html><!-- 二级页面：游戏板块。地址是 /games（由 public/index.php 路由过来） -->
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8"><!-- 字符编码，保证中文不乱码 -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"><!-- 手机适配 -->
+  <title>游戏板块 · 我的空间</title><!-- 标签页标题 -->
+  <!-- 资源一律用绝对路径（/assets/...）：这一页的地址是 /games，
+       用相对路径的话，访问 /games/ 时会被解析成 /games/assets/... 而 404 -->
+  <link rel="manifest" href="/manifest.webmanifest"><!-- 应用清单：名字、图标、启动地址 -->
+  <link rel="icon" href="/assets/img/icon-192.png">
+  <link rel="apple-touch-icon" href="/assets/img/icon-192.png">
+  <meta name="theme-color" content="#0a0d1c"><!-- 手机状态栏 / 应用窗口的底色 -->
+  <link rel="stylesheet" href="/assets/css/style.css">
+</head>
+
+<body><!-- 刻意不用 .reveal 入场动画：这是内容页，宁可一开始就可见，
+           也不要因为脚本没跑起来而整页停在 opacity:0 -->
+
+  <div class="top-alert hidden" id="top-alert" role="alert"></div>
+
+  <!-- 顶部导航：比首页少几个锚点，因为这里是独立页面 -->
+  <nav class="navbar">
+    <a class="logo" href="/">我的空间<span class="logo-dot">.</span></a><!-- 点站名回首页 -->
+    <div class="nav-right">
+      <ul class="nav-links">
+        <li><a href="/">首页</a></li><!-- 回到一级页面 -->
+        <li><a href="/games" class="nav-current">游戏</a></li><!-- 当前所在页，高亮 -->
+        <li><a href="/study">学习</a></li>
+        <li><a href="/read">阅读</a></li>
+      </ul>
+      <div class="nav-actions">
+        <span class="user-chip hidden" id="nav-user"><!-- 已登录时由 JS 显示 -->
+          <span id="nav-username">你好</span>
+        </span>
+        <!-- 未登录时的登录入口：这一页没有登录弹窗，所以回首页并带 #login，
+             首页脚本见到这个锚点会直接把登录框展开。已登录后由 JS 隐藏。 -->
+        <a class="login-btn" id="games-login-link" href="/#login">登录</a>
+        <a class="login-btn" href="/">返回首页</a><!-- 手机上导航链接是隐藏的，这里保证随时能回去 -->
+      </div>
+    </div>
+  </nav>
+
+  <main class="page-wrap">
+
+    <header class="page-head">
+      <span class="hero-badge">二级页面 · /games</span><!-- 标明这是二级页面 -->
+      <h1>游戏板块</h1>
+      <p class="subtitle">
+        这里收录的游戏由后端数据库提供，卡片上的按钮会跳到各自的官网（新标签打开）。
+        管理员可以在页面底部直接添加新条目——那条通路就是预留好的
+        <code>POST /api/admin/games</code> 接口。
+      </p>
+      <div class="page-head-actions">
+        <a class="btn-primary" href="/">← 返回首页</a>
+        <a class="hero-link hidden" id="games-admin-link" href="#games-admin">添加游戏 →</a><!-- 仅管理员可见 -->
+      </div>
+    </header>
+
+    <!-- ---------- 游戏列表 ---------- -->
+    <section class="board-section" id="games">
+      <h2>目前收录</h2>
+      <p class="section-hint">
+        数据来自 <code>GET /api/games</code>（只返回已上架的）。每张卡片都是一个跳转入口，
+        地址只允许 http / https——这一层是后端把的关，前端再判一次只是纵深防御。
+      </p>
+
+      <ul class="games-grid" id="games-grid"><!-- 卡片由 JS 生成 --></ul>
+      <p class="list-empty hidden" id="games-empty">还没有收录任何游戏。</p>
+    </section>
+
+    <!-- ---------- 小游戏：规则全在前端，不需要登录也不需要后端 ---------- -->
+    <section class="board-section" id="arcade">
+      <h2>可以在这儿玩两把</h2>
+      <p class="section-hint">
+        上面那些条目是「通往游戏的门」，这两个是游戏本身。规则、计分、结束判定都写在
+        <code>/assets/js/arcade.js</code> 里，一行都不碰后端——所以没登录也能玩，
+        后端没起来时这一节照样在。最高分只存在你这台设备的
+        <code>localStorage</code>，换浏览器就清零，不提供同步。
+      </p>
+
+      <div class="arcade-grid">
+
+        <!-- 2048 -->
+        <div class="arcade-card">
+          <div class="arcade-head">
+            <h3>2048</h3>
+            <div class="arcade-score">
+              <span>得分 <b id="game-2048-score">0</b></span>
+              <span>最高 <b id="game-2048-best">0</b></span>
+            </div>
+          </div>
+          <!-- tabindex 是给方向键用的：棋盘拿到焦点才接方向键，
+               否则整个页面的上下滚动会被抢走 -->
+          <div class="board-2048" id="game-2048" tabindex="0" role="application"
+               aria-label="2048 棋盘，聚焦后用方向键或 WASD 移动"></div>
+          <div class="arcade-foot">
+            <div class="dpad" id="game-2048-dpad"><!-- 四个按钮由 JS 生成 --></div>
+            <button class="btn-mini" id="game-2048-new" type="button">重新开始</button>
+          </div>
+          <p class="arcade-status" id="game-2048-status">加载中…</p>
+        </div>
+
+        <!-- 贪吃蛇 -->
+        <div class="arcade-card">
+          <div class="arcade-head">
+            <h3>贪吃蛇</h3>
+            <div class="arcade-score">
+              <span>得分 <b id="game-snake-score">0</b></span>
+              <span>最高 <b id="game-snake-best">0</b></span>
+            </div>
+          </div>
+          <!-- width/height 是画布的像素分辨率，CSS 只负责显示多大：
+               两边都写成 15 的倍数，格子才对得齐。
+               tabindex 的理由和 2048 那块一样：画布拿到焦点才接方向键，页面该滚还是能滚 -->
+          <canvas class="snake-canvas" id="game-snake-canvas" width="480" height="480"
+                  tabindex="0" role="application"
+                  aria-label="贪吃蛇画布，聚焦后用方向键或 WASD 转向，空格开始或暂停"></canvas>
+          <div class="arcade-foot">
+            <div class="dpad" id="game-snake-dpad"><!-- 四个按钮由 JS 生成 --></div>
+            <div class="arcade-btns">
+              <button class="btn-primary" id="game-snake-start" type="button">开始</button>
+              <button class="btn-mini" id="game-snake-new" type="button">再来一局</button>
+            </div>
+          </div>
+          <p class="arcade-status" id="game-snake-status">加载中…</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ---------- 弹球物理沙盒：规则和上面两个游戏一样，全在前端 ---------- -->
+    <section class="board-section" id="physics">
+      <h2 class="grad-title">物理沙盒：重力、3D 与渐变</h2>
+      <p class="section-hint">
+        这一节是「好看」本身：球体用径向渐变画出一个受光面，影子按离地高度缩放，
+        卡片是真 3D 变换（<code>perspective</code> + <code>rotateY</code>），
+        标题是渐变文字。物理部分写在 <code>/assets/js/physics.js</code>：
+        半隐式欧拉积分、四面墙反弹、球与球按面积当质量的弹性碰撞，
+        全部算在 100×60 的虚拟单位里，画的时候才乘到像素——
+        所以高分屏和窄屏上重力落下来的快慢是一样的。
+        参数只活在内存里：刷新就回默认值，不存后端也不写
+        <code>localStorage</code>，这是个演示不是成绩。
+      </p>
+
+      <div class="physics-grid">
+        <div class="physics-stage">
+          <!-- width/height 只是兜底的像素分辨率（800×480 正好是 100×60 的 8 倍），
+               真实值由 physicsScale() 按显示宽度 × devicePixelRatio 重算 -->
+          <canvas class="physics-canvas" id="physics-canvas" width="800" height="480"
+                  aria-label="弹球沙盒：按住球可以拖着走，松手甩出去，点空白处添一颗新球"></canvas>
+
+          <div class="physics-readout">
+            <span>球数 <b id="physics-count">0</b></span>
+            <span>在动 <b id="physics-moving">0</b></span>
+            <span>累计碰撞 <b id="physics-hits">0</b></span>
+          </div>
+
+          <div class="physics-controls">
+            <label class="physics-slider" for="physics-gravity">
+              重力 <output id="physics-gravity-out">70</output>
+              <input type="range" id="physics-gravity" min="0" max="200" step="5" value="70">
+            </label>
+            <label class="physics-slider" for="physics-bounce">
+              弹性 <output id="physics-bounce-out">78%</output>
+              <input type="range" id="physics-bounce" min="0" max="100" step="1" value="78">
+            </label>
+          </div>
+
+          <div class="arcade-btns">
+            <button class="btn-primary" id="physics-toggle" type="button">暂停</button>
+            <button class="btn-mini" id="physics-add" type="button">加一颗球</button>
+            <button class="btn-mini" id="physics-seed" type="button">重新扔 7 颗</button>
+            <button class="btn-mini" id="physics-clear" type="button">清空</button>
+          </div>
+          <p class="arcade-status" id="physics-status">加载中…</p>
+        </div>
+
+        <!-- 3D 翻面卡片。翻转按钮刻意放在卡片外面：卡片转到背面时，
+             正面那个面是 backface-visibility:hidden 的，把按钮放进去会点不着 -->
+        <div class="physics-side">
+          <div class="physics-card" id="physics-card">
+            <div class="physics-inner">
+              <div class="physics-face physics-front">
+                <h3>怎么捏它</h3>
+                <ul class="physics-list">
+                  <li>按住一颗球拖 —— 它跟着指针走，松手按刚才的力道甩出去。</li>
+                  <li>点空白处 —— 在那里添一颗新球（半径随机，最大 26 颗）。</li>
+                  <li>重力拉到 0 就是无重力台球，弹性拉到 100% 碰撞不损失能量。</li>
+                  <li>只有指针能扔球；按钮和滑块键盘都能用。</li>
+                </ul>
+              </div>
+              <div class="physics-face physics-back">
+                <h3>为什么看着像球</h3>
+                <ul class="physics-list">
+                  <li>受光面：径向渐变的圆心往左上偏 1/3 半径，边缘压暗。</li>
+                  <li>影子：椭圆，离地越高越大越淡，只画在地面上。</li>
+                  <li>这一卡片本身是 3D：父元素给 perspective，子元素转 rotateY。</li>
+                  <li>没有引任何 3D 库，也没有贴图——全是渐变和变换。</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+          <button class="btn-mini physics-flip-btn" id="physics-flip" type="button"
+                  aria-expanded="false" aria-controls="physics-card">看看规矩</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ---------- 管理区：只有管理员看得到 ---------- -->
+    <section class="board-section hidden" id="games-admin">
+      <h2>添加游戏</h2>
+      <p class="section-hint">
+        这是预留的添加入口。填完提交即写入数据库，前台立刻可见；
+        校验、去重、上下架都由后端完成，所以别的客户端（脚本、导入工具）
+        直接调同一个接口也能用。
+      </p>
+
+      <div class="composer">
+        <div class="composer-grid">
+          <div class="form-row">
+            <label for="game-name">游戏名 *</label>
+            <input class="composer-input" id="game-name" maxlength="40" placeholder="例如：塞尔达传说"
+                   autocomplete="off">
+          </div>
+          <div class="form-row">
+            <label for="game-url">跳转地址 *</label>
+            <input class="composer-input" id="game-url" maxlength="300" placeholder="https://开头的官网地址"
+                   autocomplete="off">
+          </div>
+          <div class="form-row">
+            <label for="game-icon">图标</label>
+            <input class="composer-input" id="game-icon" maxlength="4" placeholder="🎮" autocomplete="off">
+          </div>
+          <div class="form-row">
+            <label for="game-publisher">厂商</label>
+            <input class="composer-input" id="game-publisher" maxlength="40" placeholder="例如：任天堂"
+                   autocomplete="off">
+          </div>
+          <div class="form-row">
+            <label for="game-genre">类型</label>
+            <input class="composer-input" id="game-genre" maxlength="30" placeholder="例如：开放世界"
+                   autocomplete="off">
+          </div>
+          <div class="form-row">
+            <label for="game-sort">排序（数字小的在前）</label>
+            <input class="composer-input" id="game-sort" type="number" value="100">
+          </div>
+          <div class="form-row">
+            <label for="game-slug">英文标识（选填，用于锚点）</label>
+            <input class="composer-input" id="game-slug" maxlength="40" placeholder="例如：zelda-totk"
+                   autocomplete="off">
+          </div>
+        </div>
+        <div class="form-row">
+          <label for="game-desc">简介</label>
+          <textarea class="composer-input" id="game-desc" rows="2" maxlength="300"
+                    placeholder="一句话说明（可留空）"></textarea>
+        </div>
+        <div class="composer-foot">
+          <span class="composer-meta" id="game-form-meta">—</span>
+          <button class="btn-primary composer-submit" id="game-submit" type="button">添加</button>
+        </div>
+      </div>
+      <p class="modal-msg" id="game-tip"></p>
+    </section>
+  </main>
+
+  <footer class="footer">
+    © 2026 我的空间 · <a class="hero-link" href="/">首页</a> · 游戏板块 ·
+    <a class="hero-link" href="/study">学习板块</a> ·
+    <a class="hero-link" href="/read">阅读板块</a> ·
+    本站累计访问 <span id="visit-count">—</span> 次
+  </footer>
+
+  <!-- core.js 提供 api()/el()/提示条/两段式确认，必须在 games.js 之前加载。
+       arcade.js / physics.js 用的是 el()，所以也排在 core.js 后面；它们和 games.js
+       服务同一个页面，共享一份全局作用域，两边的顶层名字不能撞（撞了是整页 SyntaxError）。
+       规则自测都登记进 core.js 的 SMOKE_TESTS 数组，而不是各自叫同一个函数名——
+       同名函数声明是静默覆盖，先写的那套断言会悄悄不再执行。 -->
+  <script src="/assets/js/core.js" defer></script>
+  <script src="/assets/js/games.js" defer></script>
+  <script src="/assets/js/arcade.js" defer></script>
+  <script src="/assets/js/physics.js" defer></script>
+  <script src="/assets/js/pwa.js" defer></script>
+</body>
+</html>

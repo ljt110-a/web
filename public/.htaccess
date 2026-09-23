@@ -1,3 +1,8 @@
+# Apache 部署配置（放在站点根目录 public/ 下，随 .htaccess 生效）
+#
+# 前置条件：站点根目录必须指向 public/，且 Apache 打开了 mod_rewrite 与 mod_headers。
+# 用 Nginx 的话见 deploy/nginx.conf.example，逻辑与此等价。
+
 RewriteEngine On
 RewriteBase /
 
@@ -11,3 +16,33 @@ RewriteRule ^ index.php [L]
 
 # 列目录会造成源码结构泄露
 Options -Indexes
+
+# ------------------------------------------------------------
+# 安全响应头
+# 与 src/security.php 里的 security_headers() 保持一致：
+# 走 index.php 的动态响应两边都会设（重复设置无害），
+# 而 Apache 直接返回的静态资源只有这里能覆盖到。
+# ------------------------------------------------------------
+<IfModule mod_headers.c>
+  Header always set X-Content-Type-Options "nosniff"
+  Header always set X-Frame-Options "DENY"
+  Header always set Referrer-Policy "same-origin"
+  Header always set Permissions-Policy "geolocation=(), microphone=(), camera=()"
+  Header always set Content-Security-Policy "default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; img-src 'self' data:; connect-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'"
+
+  # 配好 HTTPS 之后再打开这一行（本地 http 开着会把自己的域名锁死在 https 上）
+  # Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains"
+</IfModule>
+
+# ------------------------------------------------------------
+# 兜底：这些后缀本来就不该出现在 public/ 里，万一被误放进来也不许下载
+# ------------------------------------------------------------
+<FilesMatch "\.(sql|log|bak|ini|md|json|lock|yml|yaml|env)$">
+  <IfModule mod_authz_core.c>
+    Require all denied
+  </IfModule>
+  <IfModule !mod_authz_core.c>
+    Order allow,deny
+    Deny from all
+  </IfModule>
+</FilesMatch>

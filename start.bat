@@ -1,22 +1,28 @@
 @echo off
 chcp 65001 >nul
-cd /d %~dp0
+rem ============================================================
+rem  web-one one-click launcher
+rem
+rem  Double-click this file, and it will:
+rem    check env - upgrade database - pick a free port -
+rem    start the server - wait until ready - open the browser
+rem
+rem  This file is intentionally ASCII-only, not a single Chinese character:
+rem  cmd.exe reads a batch file byte by byte using the CURRENT code page,
+rem  so any multibyte text can make it mis-read the following lines and
+rem  run garbage -- switching to 65001 does not fix that either.
+rem  All Chinese messages and every decision live in tools\launch.php
+rem  (UTF-8, and it can be run and verified on its own).
+rem ============================================================
+setlocal
+cd /d "%~dp0"
 
-rem 优先用 PATH 里的 php；没有就退回 phpStudy 自带的那一个（按你的实际路径改）
+rem Prefer php from PATH; fall back to phpStudy's copy if not found.
+rem Change the fallback path below if yours is somewhere else.
 set "PHP=php"
 where php >nul 2>nul
 if errorlevel 1 set "PHP=E:\phpstudy_pro\Extensions\php\php7.3.4nts\php.exe"
 
-if not exist "src\config.local.php" (
-  echo [缺少配置] 请先复制 src\config.example.php 为 src\config.local.php 并填入 MySQL 口令
-  pause
-  exit /b 1
-)
-
-rem 安装脚本是幂等的：库和表已存在就跳过，管理员已存在也不会覆盖密码，
-rem 所以每次启动顺手跑一遍，能自动补上缺失的表。
-"%PHP%" database\install.php
-
-echo.
-echo 后端已启动：http://localhost:8000   （按 Ctrl+C 停止）
-"%PHP%" -S localhost:8000 -t public public\index.php
+"%PHP%" tools\launch.php
+if errorlevel 1 pause
+exit /b 0

@@ -1,0 +1,162 @@
+<!DOCTYPE html><!-- 二级页面：小说阅读。地址是 /read，由 public/index.php 路由过来 -->
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8"><!-- 字符编码，保证中文不乱码 -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"><!-- 手机适配 -->
+  <title>小说阅读 · 我的空间</title>
+  <!-- 资源一律用绝对路径（/assets/...）：这一页的地址是 /read，
+       用相对路径的话，访问 /read/ 时会被解析成 /read/assets/... 而 404 -->
+  <link rel="manifest" href="/manifest.webmanifest"><!-- 应用清单：名字、图标、启动地址 -->
+  <link rel="icon" href="/assets/img/icon-192.png">
+  <link rel="apple-touch-icon" href="/assets/img/icon-192.png">
+  <meta name="theme-color" content="#0a0d1c"><!-- 手机状态栏 / 应用窗口的底色 -->
+  <link rel="stylesheet" href="/assets/css/style.css">
+</head>
+
+<body><!-- 和 /study 一样不挂滚动入场动画：内容页宁可一开始就全部可见 -->
+
+  <div class="top-alert hidden" id="top-alert" role="alert"></div>
+
+  <nav class="navbar">
+    <a class="logo" href="/">我的空间<span class="logo-dot">.</span></a>
+    <div class="nav-right">
+      <ul class="nav-links">
+        <li><a href="/">首页</a></li>
+        <li><a href="/games">游戏</a></li>
+        <li><a href="/study">学习</a></li>
+        <li><a href="/read" class="nav-current">阅读</a></li><!-- 当前页高亮 -->
+      </ul>
+      <div class="nav-actions">
+        <span class="user-chip hidden" id="nav-user"><!-- 已登录时由 JS 显示 -->
+          <span id="nav-username">你好</span>
+        </span>
+        <!-- 这一页没有登录弹窗：回首页带 #login，首页脚本会把登录框直接展开 -->
+        <a class="login-btn" id="read-login-link" href="/#login">登录</a>
+        <a class="login-btn" href="/">返回首页</a>
+      </div>
+    </div>
+  </nav>
+
+  <main class="page-wrap">
+
+    <header class="page-head">
+      <span class="hero-badge">二级页面 · /read</span>
+      <h1 class="grad-title">小说阅读</h1>
+      <p class="subtitle">
+        选中一个本机的 txt 文件，站点替你认出章节，存成一本能翻页、记得住进度、
+        读过的章节离线也还在的书（<code>POST /api/novels</code>）。
+        文件在浏览器里读完再发，不经过上传表单；书架是按账号隔离的私有内容，
+        别人看不到你存了什么。
+      </p>
+      <div class="page-head-actions">
+        <a class="btn-primary" href="/">← 返回首页</a>
+        <a class="hero-link" id="read-import-link" href="#read-import">选择一个 txt 文件 →</a>
+      </div>
+    </header>
+
+    <!-- ---------- 书架 ---------- -->
+    <section class="board-section" id="shelf">
+      <h2>书架</h2>
+      <p class="section-hint">
+        按「最近读到」排序：存一次进度，这本书就自动浮到最前面。
+        点「接着读」会回到上次那章那一段，不用自己找。
+      </p>
+
+      <div class="memo-gate" id="read-gate">
+        <span id="read-gate-text">登录后才有书架。正文只存进你自己的账号下。</span>
+        <a class="btn-mini" href="/#login">去登录</a>
+      </div>
+
+      <div class="hidden" id="read-shelf-body">
+        <ul class="shelf-list" id="shelf-list"><!-- 书卡由 reader.js 生成 --></ul>
+        <p class="list-empty hidden" id="shelf-empty">书架还空着。下面选一个 txt 文件，就有第一本。</p>
+      </div>
+    </section>
+
+    <!-- ---------- 导入 ---------- -->
+    <section class="board-section" id="read-import">
+      <h2>文件导入</h2>
+      <p class="section-hint">
+        不用手动分章：<strong>第X章 / 第X节 / 第X回 / Chapter 7</strong>、
+        以及「序章 / 楔子 / 番外 / 尾声 / 后记」这类栏目标题都认；
+        整本都没有标记时按字数切开，读起来照样一段一段翻页。
+        写在开头的<strong>目录</strong>不会被当成章节——标题后面没有正文就不算标题。
+        UTF-8、GBK / GB18030、带 BOM 的 UTF-16 都读得开，多余的空行和不可见字符会清掉。
+        <strong>单本多大不限</strong>，几百万字的整本书一次就能导进来；限的是每个账号的书架总量。
+        只收纯文本：把 exe / zip / docx 改名成 .txt 会在选文件这一步就被认出来拒掉——
+        本站不装病毒库、不做杀毒，服务器也从不把文件落盘，这一道挡的是「往书架堆几十兆垃圾」。
+      </p>
+
+      <div class="import-form">
+        <div class="form-row">
+          <label for="import-title">书名（选填，留空就用正文里的书名，再没有就用文件名）</label>
+          <input class="composer-input" id="import-title" maxlength="120" autocomplete="off"
+                 placeholder="例如：剑影残章">
+        </div>
+        <div class="form-row">
+          <label for="import-file">小说文件（.txt）</label>
+          <!-- 真正的输入框压成一条只剩聚焦能力的缝，点 label 就能开系统文件框：
+               这样不用 JS 去调 input.click()，键盘 Tab 和读屏也都还找得到它 -->
+          <div class="file-pick">
+            <input class="file-input" type="file" id="import-file" accept=".txt,text/plain">
+            <label class="btn-mini file-pick-btn" for="import-file">选择文件</label>
+            <span class="file-name" id="import-file-name">还没选文件</span>
+          </div>
+        </div>
+        <div class="import-meta">
+          <span id="import-count">0 字</span>
+          <span id="import-limit">单本不限大小 · 按账号总量算</span>
+        </div>
+        <div class="import-actions">
+          <button class="btn-primary" id="import-submit" type="button">存进书架</button>
+          <button class="btn-mini" id="import-clear" type="button">清空</button>
+        </div>
+        <p class="modal-msg" id="import-tip"></p>
+      </div>
+    </section>
+
+    <!-- ---------- 阅读器：整块平时藏起来，点开一本书才出现 ---------- -->
+    <section class="board-section reader hidden" id="reader">
+      <div class="reader-bar">
+        <button class="btn-mini" id="reader-close" type="button">← 合上</button>
+        <span class="reader-book" id="reader-book"></span>
+        <div class="reader-tools">
+          <select class="reader-toc" id="reader-toc" aria-label="跳到指定章节"><!-- 目录项由 JS 填 --></select>
+          <button class="btn-mini" id="read-font-minus" type="button" aria-label="字变小">A−</button>
+          <button class="btn-mini" id="read-font-plus" type="button" aria-label="字变大">A+</button>
+          <button class="btn-mini" id="read-theme" type="button" aria-label="切换阅读底色">底色</button>
+        </div>
+      </div>
+
+      <div class="reader-body" id="reader-body">
+        <h3 class="reader-chapter" id="reader-chapter"></h3>
+        <div class="reader-text" id="reader-text"><!-- 正文一段一个 <p>，全部用 textContent 建 --></div>
+        <p class="reader-empty hidden" id="reader-empty"></p>
+      </div>
+
+      <div class="reader-nav">
+        <button class="btn-mini" id="reader-prev" type="button">← 上一章</button>
+        <span class="reader-page" id="reader-page">— / —</span>
+        <button class="btn-mini" id="reader-next" type="button">下一章 →</button>
+      </div>
+      <p class="arcade-status" id="reader-status"></p>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <p class="footer-links">
+      <a href="/games">游戏板块</a>
+      <a href="/study">学习板块</a>
+      <a href="/">留言板</a>
+      <a href="/">备忘录</a>
+    </p>
+    © 2026 我的空间 · <a class="hero-link" href="/">首页</a> · 小说阅读 ·
+    本站累计访问 <span id="visit-count">—</span> 次
+  </footer>
+
+  <!-- core.js 提供 api()/el()/提示条/两段式确认/SMOKE_TESTS 登记表，必须最先加载 -->
+  <script src="/assets/js/core.js" defer></script>
+  <script src="/assets/js/reader.js" defer></script>
+  <script src="/assets/js/pwa.js" defer></script>
+</body>
+</html>
