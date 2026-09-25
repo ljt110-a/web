@@ -79,6 +79,9 @@ $pages = [
     '/read' => 'read.html',            // 小说阅读（粘贴正文自动分章）：二级页面
     '/read/' => 'read.html',
     '/read.html' => 'read.html',
+    '/software' => 'software.html',    // 软件仓库（收录 + 服务器代下载）：二级页面
+    '/software/' => 'software.html',
+    '/software.html' => 'software.html',
 ];
 
 if (isset($pages[$path])) {

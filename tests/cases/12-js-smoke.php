@@ -59,7 +59,7 @@ if ($missingNode) {
         }
         t_assert($m[1] === 'OK', '页面脚本启动无异常：' . $m[2], $reason);
     }
-    t_assert($checked >= 5, 'public 下的每个页面都被烟测扫到了（当前 ' . $checked . ' 个）');
+    t_assert($checked >= 6, 'public 下的每个页面都被烟测扫到了（当前 ' . $checked . ' 个）');
     // SMOKE_TESTS 是可选钩子：登记了却没被调到，那些断言就悄悄成了死代码。
     // 这里盯一行汇总，保证「至少有一页的规则真的跑过」。
     t_assert(strpos($output, '规则自测跑过的页面：') !== false,
@@ -89,6 +89,7 @@ if ($missingNode) {
         'index.html' => 'appSelfTest、coreSelfTest',
         'read.html' => 'coreSelfTest、readerSelfTest',
         'games.html' => 'arcadeSelfTest、coreSelfTest、physicsSelfTest',
+        'software.html' => 'coreSelfTest、softwareSelfTest',
     ] as $page => $want) {
         t_eq($want, $testsOf($page), $page . ' 的规则自测一组不缺、一组不多');
     }

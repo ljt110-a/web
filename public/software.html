@@ -1,0 +1,266 @@
+<!DOCTYPE html><!-- 二级页面：软件仓库（我自己收的软件 + 服务器代下载的安装包）。地址 /software，由 public/index.php 路由过来 -->
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8"><!-- 字符编码，保证中文不乱码 -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"><!-- 手机适配 -->
+  <title>软件仓库 · 我的空间</title>
+  <!-- 资源一律用绝对路径（/assets/...）：这一页的地址是 /software，
+       用相对路径的话，访问 /software/ 时会被解析成 /software/assets/... 而 404 -->
+  <link rel="manifest" href="/manifest.webmanifest"><!-- 应用清单：名字、图标、启动地址 -->
+  <link rel="icon" href="/assets/img/icon-192.png">
+  <link rel="apple-touch-icon" href="/assets/img/icon-192.png">
+  <meta name="theme-color" content="#0a0d1c"><!-- 手机状态栏 / 应用窗口的底色 -->
+  <link rel="stylesheet" href="/assets/css/style.css">
+</head>
+
+<body><!-- 内容页不挂滚动入场动画：宁可一开始就全部可见 -->
+
+  <div class="top-alert hidden" id="top-alert" role="alert"></div>
+
+  <nav class="navbar">
+    <a class="logo" href="/">我的空间<span class="logo-dot">.</span></a>
+    <div class="nav-right">
+      <ul class="nav-links">
+        <li><a href="/">首页</a></li>
+        <li><a href="/games">游戏</a></li>
+        <li><a href="/study">学习</a></li>
+        <li><a href="/read">阅读</a></li>
+        <li><a href="/software" class="nav-current">软件</a></li><!-- 当前页高亮 -->
+      </ul>
+      <div class="nav-actions">
+        <span class="user-chip hidden" id="nav-user"><!-- 已登录时由 JS 显示 -->
+          <span id="nav-username">你好</span>
+        </span>
+        <!-- 这一页没有登录弹窗：回首页带 #login，首页脚本会把登录框直接展开 -->
+        <a class="login-btn" id="soft-login-link" href="/#login">登录</a>
+        <a class="login-btn" href="/">返回首页</a>
+      </div>
+    </div>
+  </nav>
+
+  <main class="page-wrap">
+
+    <header class="page-head">
+      <span class="hero-badge">二级页面 · /software</span>
+      <h1>软件仓库</h1>
+      <p class="subtitle">
+        我收的几个工具，都放在这一页。写着「服务器直链」的那几款，安装包已经由本站
+        代下载好了——点「下载」拿到的是这台服务器上的那一份，不经过第三方的跳转。
+      </p>
+      <!-- 四个数都来自同一个 GET /api/software：总数、分类数、有本地包的数、当前筛选出来的数。
+           前三个是后端算好的，第四个由前端按当下的筛选条件现算，所以标着「当前展示」 -->
+      <div class="soft-stats" id="soft-stats">
+        <span>收录软件 <b data-stat="total">—</b></span>
+        <span>软件类型 <b data-stat="categories">—</b></span>
+        <span>可直链下载 <b data-stat="directFiles">—</b></span>
+        <span>当前展示 <b id="soft-stat-shown">—</b></span>
+      </div>
+      <div class="page-head-actions">
+        <a class="btn-primary" href="/">← 返回首页</a>
+      </div>
+    </header>
+
+    <!-- ---------- 侧栏 + 主区 ---------- -->
+    <div class="soft-layout">
+
+      <aside class="soft-side">
+        <h2 class="soft-side-title">软件类型</h2>
+        <ul class="soft-cats" id="soft-cats"><!-- 「全部分类」与各分类条目由 JS 生成 --></ul>
+        <p class="soft-side-note">服务器直链 · <b data-stat="directFiles">0</b> 个可下载</p>
+      </aside>
+
+      <section class="soft-main">
+        <!-- 平台筛选：每个 chip 后面的数是「这个平台有几款」，由后端一次算好 -->
+        <div class="soft-filters" id="soft-platforms"></div>
+
+        <div class="soft-tagbar">
+          <div class="soft-tags" id="soft-tags"></div>
+          <button class="btn-mini" id="soft-tag-more" type="button">展开全清单</button>
+        </div>
+
+        <div class="soft-tools">
+          <input class="composer-input soft-search" id="soft-search" type="search"
+                 placeholder="搜索软件名称、简介、标签…" autocomplete="off">
+          <select class="composer-input soft-sort" id="soft-sort" aria-label="排序方式">
+            <option value="default">按收录顺序</option>
+            <option value="group-tag">按标签分组</option>
+            <option value="name">按名称</option>
+            <option value="stars">按 star 数</option>
+            <option value="size">按包体大小</option>
+          </select>
+          <div class="soft-view" id="soft-view">
+            <button class="chip active" type="button" data-view="grid">网格</button>
+            <button class="chip" type="button" data-view="list">列表</button>
+          </div>
+        </div>
+
+        <p class="modal-msg" id="soft-tip"></p>
+
+        <div class="soft-body" id="soft-list"><!-- 卡片（或分组卡片）由 JS 生成 --></div>
+        <p class="list-empty hidden" id="soft-empty">没有符合条件的软件，换个筛选看看。</p>
+      </section>
+    </div>
+
+    <!-- ============================================================
+         后台编辑器：整块默认隐藏，只有 GET /api/me 返回 role=admin 时才显示。
+         隐藏只是为了不给人看用不着的表单——真正的把关在接口那一头：
+         这一页的每一个写接口都是 require_admin，游客与普通账号打进来是 401 / 403。
+         ============================================================ -->
+    <section class="board-section hidden" id="soft-admin">
+      <h2>软件仓库后台</h2>
+      <p class="section-hint">
+        新增、改内容、抓包、下架、删除都在这里。<b>「服务器代下载」是让这台服务器替你出网</b>，
+        所以出网的目标由配置里的白名单说了算，大小与总配额也各有一道闸——
+        抓不回来会当场说清为什么，不会留下半个包。
+      </p>
+
+      <!-- 占用条用的是 GET /api/admin/software 里的 quota：这是全站共用的一份磁盘，
+           只有管理员看得到，游客与普通账号的响应里根本没有这个字段 -->
+      <div class="soft-quota">
+        <span>服务器出网：<b id="soft-fetch-state">—</b></span>
+        <span>安装包 <b id="soft-quota-count">0</b> 个</span>
+        <span>占用 <b id="soft-quota-used">—</b> / <b id="soft-quota-limit">—</b></span>
+        <div class="soft-quota-bar"><i id="soft-quota-fill"></i></div>
+      </div>
+
+      <p class="soft-editing" id="soft-editing">正在新增一款（还没有 id）</p>
+
+      <!-- ---------- ② 图标 ---------- -->
+      <div class="soft-icon-row">
+        <div class="soft-icon-box" id="soft-icon-box"><!-- 预览：有图显示图，没图显示首字母 -->
+          <span id="soft-icon-letter">?</span>
+          <img id="soft-icon-img" class="hidden" alt="">
+        </div>
+        <div class="soft-icon-actions">
+          <label class="btn-mini file-pick-btn" for="soft-icon-file">选择图标</label>
+          <!-- 只收位图：后端按文件头认格式，SVG 是脚本可执行的 XML，从本站发出去等于
+               把别人的脚本挂在自己的域名下，所以这里 accept 也提前拦一道。
+               这一栏用 /read 上验证过的 .file-input（视觉藏起来但仍在布局里）：
+               display:none 的 input 在个别浏览器里连点 label 都开不了文件框 -->
+          <input class="file-input" type="file" id="soft-icon-file"
+                 accept="image/png,image/gif,image/jpeg,image/webp,image/x-icon,.ico,.png,.gif,.jpg,.jpeg,.webp,.ico">
+          <button class="btn-mini" id="soft-icon-fetch" type="button">智能获取</button>
+          <button class="btn-mini" id="soft-icon-clear" type="button">去掉图标</button>
+          <p class="modal-msg" id="soft-icon-tip"></p>
+        </div>
+      </div>
+
+      <!-- ---------- ① 基本信息 ---------- -->
+      <fieldset class="soft-field">
+        <legend>① 基本信息</legend>
+        <div class="soft-form-grid">
+          <div class="form-row">
+            <label for="soft-f-name">软件名（必填）</label>
+            <input class="composer-input" id="soft-f-name" maxlength="80" autocomplete="off">
+          </div>
+          <div class="form-row">
+            <label for="soft-f-category">分类（必填，侧栏按这一栏分组）</label>
+            <input class="composer-input" id="soft-f-category" maxlength="30"
+                   list="soft-cat-list" autocomplete="off">
+            <!-- 候选来自现有条目：分类是自由文本，但复用同一个写法侧栏才不会裂成「系统工具」和「系统 工具」 -->
+            <datalist id="soft-cat-list"></datalist>
+          </div>
+          <div class="form-row">
+            <label for="soft-f-slug">英文标识（选填，只用来生成锚点）</label>
+            <input class="composer-input" id="soft-f-slug" maxlength="60" autocomplete="off"
+                   placeholder="例如 markdown-here">
+          </div>
+          <div class="form-row">
+            <label for="soft-f-version">版本号</label>
+            <input class="composer-input" id="soft-f-version" maxlength="40" autocomplete="off"
+                   placeholder="例如 4.5.8">
+          </div>
+          <div class="form-row">
+            <label for="soft-f-license">协议</label>
+            <input class="composer-input" id="soft-f-license" maxlength="40" autocomplete="off"
+                   placeholder="例如 MIT">
+          </div>
+          <div class="form-row">
+            <label for="soft-f-stars">star 数（「自动识别信息」会填这一格）</label>
+            <input class="composer-input" id="soft-f-stars" type="number" min="0" step="1">
+          </div>
+          <div class="form-row">
+            <label for="soft-f-sort">排序值（小的排前面，默认 100）</label>
+            <input class="composer-input" id="soft-f-sort" type="number" min="-9999" max="9999" step="1">
+          </div>
+          <div class="form-row soft-form-tags">
+            <label for="soft-f-tags">标签（逗号或空格分隔）</label>
+            <input class="composer-input" id="soft-f-tags" maxlength="300" autocomplete="off"
+                   placeholder="例如 离线, 绿色, 跨平台">
+          </div>
+          <div class="form-row soft-form-desc">
+            <label for="soft-f-desc">简介（最多 300 字，可以换行）</label>
+            <textarea class="composer-input" id="soft-f-desc" rows="3" maxlength="300"></textarea>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <span class="form-label">平台（多选，卡片上那一排小字）</span>
+          <div class="soft-filters" id="soft-platform-box"><!-- 复选 chip 由 JS 按 platformLabels 生成 --></div>
+        </div>
+        <label class="soft-enabled">
+          <input type="checkbox" id="soft-f-enabled" checked>
+          <span>上架（不勾就对访客隐藏，安装包与图标都留着）</span>
+        </label>
+      </fieldset>
+
+      <!-- ---------- ③ 安装包从哪来 ---------- -->
+      <fieldset class="soft-field">
+        <legend>③ 安装包从哪来</legend>
+        <div class="form-row">
+          <label for="soft-f-mode">取包方式</label>
+          <select class="composer-input" id="soft-f-mode">
+            <option value="auto">自动判断（GitHub → Gitee → 直链，推荐）</option>
+            <option value="github">只认 GitHub 的最新 release</option>
+            <option value="gitee">只认 Gitee 的最新 release</option>
+            <option value="direct">只用下面这条安装包直链</option>
+            <option value="none">不让服务器抓包（只挂外链）</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <label for="soft-f-github">GitHub 仓库地址</label>
+          <div class="soft-inline">
+            <input class="composer-input" id="soft-f-github" maxlength="300" autocomplete="off"
+                   placeholder="https://github.com/owner/repo">
+            <button class="btn-mini" id="soft-identify" type="button">自动识别信息</button>
+          </div>
+        </div>
+        <div class="form-row">
+          <label for="soft-f-gitee">Gitee 仓库地址（可选）</label>
+          <input class="composer-input" id="soft-f-gitee" maxlength="300" autocomplete="off"
+                 placeholder="https://gitee.com/owner/repo">
+        </div>
+        <div class="form-row">
+          <label for="soft-f-home">官方网站（可选）</label>
+          <input class="composer-input" id="soft-f-home" maxlength="300" autocomplete="off"
+                 placeholder="https://example.com">
+        </div>
+        <div class="form-row">
+          <label for="soft-f-dl">安装包直链（可选，优先级高：填了且选「只用直链」时以它为准）</label>
+          <input class="composer-input" id="soft-f-dl" maxlength="500" autocomplete="off"
+                 placeholder="https://example.com/setup.exe">
+        </div>
+      </fieldset>
+
+      <div class="soft-form-actions">
+        <button class="btn-primary" id="soft-save" type="button">保存此软件</button>
+        <button class="btn-mini" id="soft-grab" type="button">服务器代下载</button>
+        <button class="btn-mini" id="soft-release" type="button">不再代下载（删本地包）</button>
+        <button class="btn-mini danger" id="soft-delete" type="button">删除软件</button>
+        <button class="btn-mini" id="soft-reset" type="button">清空表单</button>
+      </div>
+      <p class="modal-msg" id="soft-form-tip"></p>
+    </section>
+  </main>
+
+  <footer class="footer">
+    © 2026 我的空间 · <a class="hero-link" href="/">首页</a> · 软件仓库 ·
+    本站累计访问 <span id="visit-count">—</span> 次
+  </footer>
+
+  <!-- core.js 提供 api()/el()/提示条/两段式确认，必须在 software.js 之前加载 -->
+  <script src="/assets/js/core.js" defer></script>
+  <script src="/assets/js/software.js" defer></script>
+  <script src="/assets/js/pwa.js" defer></script>
+</body>
+</html>

@@ -35,6 +35,55 @@ function json_out($data, $status = 200)
     echo json_encode($data, JSON_UNESCAPED_UNICODE);
 }
 
+/**
+ * 输出一个本地文件并结束（软件仓库的安装包与图标）。
+ *
+ * 这是整个接口层唯一不是 JSON 的响应，所以形状要在 api.php 的分发里单独认。
+ * 三点约定：
+ *   · $file['name'] 必须已经过 softnet_safe_name() 洗过——它直接进响应头，
+ *     留一个换行符就能让对方往你的响应里塞任意头
+ *   · 一律 application/octet-stream + attachment：哪怕包本身是个 .zip 或 .png，
+ *     浏览器也只当它是「要存盘的东西」，不会就地渲染
+ *   · 不缓存。安装包会被同名覆盖（管理员重新抓一次），缓存里留一份旧包
+ *     等于让访客装到旧版本，这个便宜不值得占
+ *
+ * @param array $file ['path'=>绝对路径, 'name'=>下载时显示的文件名, 'mime'=>内容类型]
+ */
+function stream_file_response(array $file)
+{
+    $path = (string) $file['path'];
+    clearstatcache(true, $path);
+    if (!is_file($path)) {
+        throw new ApiException('文件已经不在服务器上了，请让管理员重新抓取', 404);
+    }
+    $size = (int) filesize($path);
+
+    // 名字里只可能出现字母数字与 . _ -，所以不需要再为引号与换行做转义
+    $name = preg_replace('/[^\w.\-]/u', '', (string) $file['name']);
+    if ($name === '') {
+        $name = 'download';
+    }
+
+    http_response_code(200);
+    header('Content-Type: ' . (isset($file['mime']) ? $file['mime'] : 'application/octet-stream'));
+    header('Content-Length: ' . $size);
+    // 图标要让浏览器就地显示（<img> 之外，管理员新开标签页看一眼也是这个意思），
+    // 安装包则要落下盘来，别在浏览器里被当成网页打开
+    $disposition = !empty($file['inline']) ? 'inline' : 'attachment';
+    header('Content-Disposition: ' . $disposition . '; filename="' . $name . '"');
+    header('X-Content-Type-Options: nosniff');
+    header('Cache-Control: no-store');
+    header('Accept-Ranges: none');   // 不支持断点续传：中途换包会让旧连接对不上
+
+    // 大文件下载期间别让 PHP 掐自己的超时（内置服务器本来就没有限制，
+    // 但换成 php-fpm 跑就会在 30 秒处把下载腰斩）
+    if (function_exists('set_time_limit')) {
+        @set_time_limit(0);
+    }
+
+    readfile($path);
+}
+
 /** 读取 JSON 请求体；不是合法 JSON 时抛 400 */
 function body_json()
 {

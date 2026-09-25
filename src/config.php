@@ -104,6 +104,32 @@ $defaults = [
     'novel_max_count' => 30,           // 每个账号最多存几本
     'novel_chapter_max_chars' => 30000,// 单章超过这个字数就再切开，一次翻页不该传三万字
 
+    // ---------- 软件仓库（含服务器代下载）----------
+    // 安装包与图标落盘的位置。刻意放在 public/ 之外：浏览器不能直连这个目录，
+    // 每一次下载都要经过 /api/software/file 那道判断（是否上架、是否真的有包）。
+    'soft_dir' => $rootDir . '/var/softs',
+    'soft_max_count' => 300,               // 最多收录多少款，防止这张表无限长
+    // 出网总开关。关掉之后「自动识别信息」「抓安装包」「抓图标」三个动作一律拒绝，
+    // 列表和已经落盘的安装包照常可用——内网部署或没有外网的机器上就把它关掉。
+    'soft_fetch_enabled' => true,
+    // 允许出网的主机白名单（逗号分隔，只比对主机名，不比对外壳）。
+    // 默认这份是「GitHub 的 API 与它自己的重定向目标 + Gitee 的 API + 它的头像 CDN」，
+    // 想加源站就在这里加一行，不需要改代码。
+    // avatars.githubusercontent.com 只在「智能获取图标」时会用到：仓库 API 给的
+    // owner.avatar_url 就落在这个域名上，不加它等于智能获取永远取不到头像。
+    'soft_fetch_hosts' => 'api.github.com,github.com,codeload.github.com,'
+        . 'raw.githubusercontent.com,objects.githubusercontent.com,release-assets.githubusercontent.com,'
+        . 'avatars.githubusercontent.com,gitee.com',
+    'soft_fetch_timeout' => 20,            // 单次建连与两次读之间的超时（秒）
+    'soft_fetch_max_redirect' => 3,        // 最多跟几跳重定向，每一跳都重新过一遍白名单
+    'soft_fetch_meta_bytes' => 300000,     // 「自动识别信息」的响应体上限：仓库元数据用不了 300 KB
+    'soft_icon_max_bytes' => 200000,       // 单个图标上限，超过就当没抓到
+    'soft_max_file_bytes' => 209715200,    // 单个安装包上限 200 MB，边下边计数，超了立刻中断并删掉半成品
+    'soft_quota_bytes' => 2147483648,      // 全部安装包合计占用上限 2 GB，撞上了要先删旧的再抓新的
+    // 关掉「不许访问内网地址」这一条。唯一用途是让测试用一台本机假源站跑完整下载链路
+    // （见 tests/fake_http.php）；生产环境必须保持 false，doctor 与 security_warnings 会盯着它。
+    'soft_fetch_allow_private' => false,
+
     // ---------- 资源监控 ----------
     'stats_dir' => $rootDir . '/var/stats',
     'stats_sample_interval' => 60, // 两次采样之间至少间隔多少秒（避免每个请求都写文件）

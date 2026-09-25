@@ -261,6 +261,7 @@ function system_app_metrics()
         'messages' => message_count(),
         'memos' => memo_count(),
         'games' => game_count(),
+        'softs' => software_count(),
         'visitsToday' => (int) $visits['pv'],
         'visitorsToday' => (int) $visits['uv'],
     ];
@@ -440,13 +441,14 @@ function system_verdict(array $snapshot)
 
     // ---- 应用规模：和上面的机器指标放一起，才好判断「现在算不算大」 ----
     $verdict[] = ['level' => 'info', 'text' => sprintf(
-        '应用规模：%d 个账号（%d 个管理员）、%d 个有效会话、%d 条留言、%d 条备忘录、%d 个游戏；今日访问 %d 次 / %d 人',
+        '应用规模：%d 个账号（%d 个管理员）、%d 个有效会话、%d 条留言、%d 条备忘录、%d 个游戏、%d 款软件；今日访问 %d 次 / %d 人',
         $app['users'],
         $app['admins'],
         $app['sessionsAlive'],
         $app['messages'],
         $app['memos'],
         $app['games'],
+        $app['softs'],
         $app['visitsToday'],
         $app['visitorsToday']
     )];

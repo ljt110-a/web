@@ -120,6 +120,7 @@ $expected = [
     'pomodoros' => ['id', 'user_id', 'subject', 'minutes', 'elapsed', 'finished', 'created_at'],
     'novels' => ['id', 'user_id', 'title', 'chapter_count', 'char_count', 'progress_chapter', 'progress_paragraph', 'created_at', 'updated_at'],
     'novel_chapters' => ['id', 'novel_id', 'seq', 'title', 'content', 'char_count'],
+    'softs' => ['id', 'slug', 'name', 'category', 'platforms', 'tags', 'description', 'homepage', 'github_url', 'gitee_url', 'download_url', 'source_mode', 'version', 'license', 'icon_file', 'icon_kind', 'star_count', 'size_bytes', 'file_ext', 'file_sha256', 'file_display', 'file_origin', 'file_fetched_at', 'enabled', 'sort_order', 'created_at', 'updated_at'],
 ];
 
 if ($connected) {
@@ -174,6 +175,7 @@ foreach ([
     'log_dir' => '应用日志',
     'stats_dir' => '资源监控的采样文件',
     'mail_dir' => 'mail_driver=log 时的邮件',
+    'soft_dir' => '软件仓库的安装包与图标（服务器代下载落在这里）',
 ] as $key => $purpose) {
     $dir = cfg($key);
     if (!is_dir($dir) && !ensure_dir($dir)) {

@@ -203,14 +203,6 @@ function readLooksBinary(bytes) {
   return '';
 }
 
-/** 文件大小说成人话：别让用户看见 1572864 这种数 */
-function formatBytes(n) {
-  const value = parseInt(n, 10) || 0;
-  if (value < 1024) return value + ' B';
-  if (value < 1024 * 1024) return Math.round(value / 1024) + ' KB';
-  return (Math.round(value / 1024 / 1024 * 10) / 10).toFixed(1) + ' MB';
-}
-
 /** 一章的正文 → 自然段数组。库里用换行分段，这里就按换行分 */
 function readParagraphs(content) {
   const list = String(content === undefined || content === null ? '' : content).split('\n');

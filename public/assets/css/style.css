@@ -2372,3 +2372,533 @@ a.logo {/* 首页里 .logo 是 div，二级页面里是 <a>，这里把链接默
     line-height: 1.85;
   }
 }
+
+/* ============================================================
+   第 18 部分：软件仓库二级页面（/software）—— 侧栏、筛选、卡片、后台编辑器
+
+   这一页除了配额条那一格的宽度，没有任何规则依赖 JS 写进来的行内样式：
+   卡片整块由 software.js 生成，类名在这里一次性列全，改样式不用回去读脚本。
+   ============================================================ */
+
+/* ---------- 页头的四个数 ---------- */
+.soft-stats {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px 26px;
+  margin: 4px 0 26px;
+  color: var(--text-sub);
+  font-size: 0.84rem;
+}
+.soft-stats b {
+  color: var(--text-main);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;/* 数字等宽：刷新时数变了整行不左右跳 */
+}
+
+/* ---------- 侧栏 + 主区 ---------- */
+.soft-layout {
+  display: grid;
+  grid-template-columns: 210px minmax(0, 1fr);/* minmax(0,…)：侧栏给定宽，主区可收缩，
+                                                  否则一长串标签名会把 1fr 顶宽、整栏溢出 */
+  gap: 22px;
+  align-items: start;
+  padding: 0 24px;
+  margin-bottom: 34px;
+}
+.soft-side {
+  position: sticky;/* 卡片很长，分类侧栏跟着滚到哪儿都能换筛选 */
+  top: 78px;
+  padding: 18px 14px;
+  border-radius: var(--radius-lg);
+  background: var(--panel-bg);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-edge);
+}
+.soft-side-title {
+  padding: 0 6px 10px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-main);
+}
+.soft-cats {
+  list-style: none;
+}
+.soft-cat {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-sub);
+  font-size: 0.84rem;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+.soft-cat:hover {
+  color: var(--text-main);
+  background: rgba(255, 255, 255, 0.06);
+}
+.soft-cat.active {
+  color: var(--accent-1);
+  background: rgba(76, 201, 240, 0.12);
+  border-color: rgba(76, 201, 240, 0.34);
+}
+.soft-cat-count {
+  flex: none;
+  color: var(--text-sub);
+  font-size: 0.76rem;
+  font-variant-numeric: tabular-nums;
+}
+.soft-side-note {
+  margin-top: 12px;
+  padding: 10px 6px 0;
+  border-top: 1px solid var(--glass-border);
+  color: var(--text-sub);
+  font-size: 0.75rem;
+  line-height: 1.7;
+}
+.soft-main {
+  min-width: 0;
+}
+
+/* ---------- 筛选条 ---------- */
+.soft-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.chip-count {
+  margin-left: 6px;
+  color: var(--text-sub);
+  font-size: 0.72rem;
+}
+.chip.active .chip-count {
+  color: var(--accent-1);
+}
+.soft-tagbar {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.soft-tags {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.soft-tag {
+  padding: 4px 12px;
+  font-size: 0.76rem;
+}
+.soft-tagbar .btn-mini {
+  flex: none;
+  padding: 5px 14px;
+  font-size: 0.76rem;
+}
+.soft-tools {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 6px;
+}
+.soft-search {
+  flex: 1 1 240px;
+  width: auto;/* 覆盖 .composer-input 的通栏：这里它要和排序、视图并排 */
+  margin-bottom: 0;
+}
+.soft-sort {
+  flex: 0 1 160px;
+  width: auto;
+  margin-bottom: 0;
+  cursor: pointer;
+}
+.soft-view {
+  display: flex;
+  gap: 8px;
+}
+.soft-view .chip {
+  padding: 5px 14px;
+  font-size: 0.76rem;
+}
+
+/* ---------- 卡片 ---------- */
+.soft-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 16px;
+}
+.soft-list {/* 列表视图：一栏到底，卡片内部改横排 */
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.soft-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 18px;
+  border-radius: var(--radius-lg);
+  background: var(--panel-fill);
+  border: 1px solid var(--glass-border);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  transition: transform 0.3s ease, border-color 0.3s ease;
+  scroll-margin-top: 90px;/* 点锚点跳过来时别被固定导航栏压在下面 */
+}
+.soft-card:hover {
+  transform: translateY(-4px);
+  border-color: rgba(76, 201, 240, 0.5);
+}
+.soft-card:target {
+  border-color: var(--accent-1);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 0 0 1px rgba(76, 201, 240, 0.4);
+}
+.soft-card.is-off {
+  opacity: 0.55;/* 只有管理员看得到下架条目，压暗表示「访客看不见这一款」 */
+}
+.soft-card-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;/* 图标 flex:none，名字那栏才轮得到收缩 */
+}
+.soft-card-icon {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: 46px;
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid var(--glass-border);
+  overflow: hidden;
+}
+.soft-card-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;/* 传上来的图标宽高比各家不同，裁着放才不会每张卡片不一样高 */
+}
+.soft-card-letter {
+  font-size: 1.3rem;
+  font-weight: 600;
+  color: var(--accent-1);
+}
+.soft-card-titles {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.soft-card-name {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-main);
+  overflow-wrap: anywhere;
+}
+.soft-card-stars {
+  color: #ffce6b;
+  font-size: 0.74rem;
+  font-weight: 500;
+}
+.soft-card-cat {
+  align-self: flex-start;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: rgba(123, 92, 255, 0.18);
+  color: #c3b4ff;
+  font-size: 0.72rem;
+}
+.soft-card-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.soft-card-tag {
+  padding: 2px 9px;
+  border-radius: 999px;
+  border: 1px solid var(--glass-border);
+  color: var(--text-sub);
+  font-size: 0.72rem;
+}
+.soft-card-plat {
+  color: var(--text-sub);
+  font-size: 0.76rem;
+}
+.soft-card-desc {
+  color: var(--text-sub);
+  font-size: 0.82rem;
+  line-height: 1.75;
+  white-space: pre-line;/* 管理员填的换行算数：一行简介和两行简介不该长得一样 */
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;/* 卡片等高靠裁，不靠 JS 量文字高度 */
+  line-clamp: 3;
+  overflow: hidden;
+}
+.soft-card-meta {
+  margin-top: auto;/* 元信息贴到卡片底部，按钮跟着对齐（flex 列里等高卡片才有意义） */
+  color: var(--text-sub);
+  font-size: 0.76rem;
+  font-variant-numeric: tabular-nums;
+}
+.soft-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding-top: 4px;
+}
+.soft-card-actions .btn-mini {
+  padding: 6px 14px;
+  font-size: 0.78rem;
+}
+.soft-card-actions .btn-primary {
+  padding: 7px 20px;
+  font-size: 0.8rem;
+  letter-spacing: 0.02em;/* 覆盖主按钮那套大字距：卡片里三个按钮挤在一排 */
+}
+.soft-card-note {
+  color: var(--accent-1);
+  font-size: 0.72rem;
+}
+.soft-group {
+  margin-bottom: 26px;
+}
+.soft-group-title {
+  margin-bottom: 12px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-main);
+}
+/* 列表视图：卡片内部横排成一行，简介不再裁三行 */
+.soft-list .soft-card {
+  flex-direction: row;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+  padding: 14px 18px;
+}
+.soft-list .soft-card-head {
+  flex: 0 1 240px;
+}
+.soft-list .soft-card-desc {
+  flex: 1 1 260px;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+.soft-list .soft-card-meta {
+  margin-top: 0;
+  flex: 0 0 auto;
+}
+.soft-list .soft-card-actions {
+  padding-top: 0;
+}
+
+/* ---------- 后台：配额条 ---------- */
+#soft-admin .modal-msg {
+  text-align: left;/* 表单里的提示贴着字段读，居中会飘 */
+}
+.soft-quota {
+  display: flex;
+  align-items: center;
+  gap: 8px 22px;
+  flex-wrap: wrap;
+  padding: 12px 16px;
+  margin-bottom: 22px;
+  border-radius: var(--radius-sm);
+  background: var(--panel-fill);
+  border: 1px solid var(--glass-border);
+  color: var(--text-sub);
+  font-size: 0.8rem;
+}
+.soft-quota b {
+  color: var(--text-main);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.soft-quota-bar {
+  flex: 1 1 160px;
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.09);
+  overflow: hidden;
+}
+.soft-quota-bar i {/* 宽度由 JS 按 usedBytes / limitBytes 写成行内样式 */
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--accent-1), var(--accent-2));
+  transition: width 0.4s ease;
+}
+.soft-editing {
+  margin-bottom: 14px;
+  color: var(--accent-1);
+  font-size: 0.82rem;
+}
+
+/* ---------- 后台：图标一行 ---------- */
+.soft-icon-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  margin-bottom: 18px;
+}
+.soft-icon-box {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid var(--glass-border);
+  overflow: hidden;
+}
+.soft-icon-box img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.soft-icon-box #soft-icon-letter {
+  font-size: 1.6rem;
+  font-weight: 600;
+  color: var(--accent-1);
+}
+.soft-icon-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  min-width: 0;/* 长文件名/长报错也要能在这一栏里换行，而不是把表单撑宽 */
+}
+.soft-icon-actions .btn-mini {
+  padding: 6px 14px;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+.soft-icon-actions .modal-msg {
+  flex: 1 1 100%;
+  margin: 0;
+  min-height: 0;/* 平时没内容就不占一行高度 */
+  font-size: 0.76rem;
+}
+
+/* ---------- 后台：表单 ---------- */
+.soft-field {
+  padding: 16px 18px 6px;
+  margin-bottom: 18px;
+  border-radius: var(--radius-sm);
+  background: var(--panel-fill);
+  border: 1px solid var(--glass-border);
+}
+.soft-field legend {
+  padding: 0 8px;
+  color: var(--text-main);
+  font-size: 0.86rem;
+  font-weight: 600;
+}
+.soft-form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 0 16px;
+}
+.soft-form-tags,
+.soft-form-desc {
+  grid-column: 1 / -1;/* 标签和简介各占整行：它们的内容长度没法和别人对齐 */
+}
+.form-label {
+  color: var(--text-sub);
+  font-size: 0.78rem;
+}
+.soft-enabled {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 4px 0 14px;
+  color: var(--text-sub);
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+.soft-enabled input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent-1);
+  cursor: pointer;
+}
+.soft-inline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.soft-inline .composer-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin-bottom: 0;
+}
+.soft-inline .btn-mini {
+  flex: none;
+  padding: 8px 16px;
+  font-size: 0.78rem;
+}
+.soft-form-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+.soft-form-actions .btn-mini.danger {/* 删除：沿用留言板那套红字描边 */
+  color: #ff8f9b;
+  border-color: rgba(255, 122, 138, 0.34);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .soft-card:hover {
+    transform: none;/* 卡片抬升只是装饰，关掉它不影响任何信息 */
+  }
+  .soft-quota-bar i {
+    transition: none;
+  }
+}
+@media (max-width: 768px) {/* 窄屏：侧栏变通栏放在最前面，筛选工具竖着排 */
+  .soft-layout {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+    padding: 0 18px;
+  }
+  .soft-side {
+    position: static;/* 一栏到底，粘住的侧栏只会挡住下面的内容 */
+  }
+  .soft-cats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .soft-cat {
+    width: auto;
+  }
+  .soft-sort {
+    flex: 1 1 100%;
+  }
+  .soft-list .soft-card-head {
+    flex: 1 1 100%;
+  }
+  .soft-form-actions .btn-primary,
+  .soft-form-actions .btn-mini {
+    flex: 1 1 auto;
+  }
+}

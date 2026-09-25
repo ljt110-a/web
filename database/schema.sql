@@ -1,5 +1,5 @@
 -- ============================================================
--- web-one 全栈项目：MySQL 表结构（v6）
+-- web-one 全栈项目：MySQL 表结构（v7）
 --
 -- 这个文件只做“建表”，不建库、不写业务数据。
 -- 正常安装不需要手动执行它：
@@ -272,3 +272,50 @@ CREATE TABLE IF NOT EXISTS `novel_chapters` (
 -- ON DELETE CASCADE：删一本书就是把它的章节一起删掉，不留孤儿正文占空间。
 -- seq 从 0 开始且连续，所以「全书读完」就是 seq === chapter_count - 1，
 -- 前端不必为了找下一章多发一次请求。
+
+-- ------------------------------------------------------------
+-- 第 12 张表：softs（软件仓库）—— 全站共享的内容表，不按账号隔离
+-- 和 games 同类：前台只读，增删改一律走管理员接口，所以没有 user_id 与外键。
+-- 比 games 多的是两组字段：一组是「去哪儿找这个软件」（GitHub / Gitee / 官网 / 直链），
+-- 一组是「服务器已经替大家把安装包抓下来了吗」。后者只存服务端生成的文件名与摘要，
+-- 绝不存管理员输入的路径——落盘位置由 src/softnet.php 一处决定（见那里的说明）。
+-- ------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS `softs` (
+  `id`              BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '软件 ID',
+  `slug`            VARCHAR(60)  NULL DEFAULT NULL COMMENT '英文标识，用于 /software#soft-xxx 锚点与下载文件名，可空',
+  `name`            VARCHAR(80)  NOT NULL COMMENT '软件名，卡片标题',
+  `category`        VARCHAR(30)  NOT NULL DEFAULT '其它' COMMENT '分类，左侧侧栏按它分组并计数',
+  `platforms`       VARCHAR(60)  NOT NULL DEFAULT '' COMMENT '支持的平台，逗号分隔的小写代号：windows,macos,linux,android,ios,web',
+  `tags`            VARCHAR(300) NOT NULL DEFAULT '' COMMENT '标签，逗号分隔，前端渲染成 #标签',
+  `description`     VARCHAR(300) NOT NULL DEFAULT '' COMMENT '一句话简介',
+  `homepage`        VARCHAR(300) NULL DEFAULT NULL COMMENT '官网地址，卡片上的「官网」按钮',
+  `github_url`      VARCHAR(300) NULL DEFAULT NULL COMMENT 'GitHub 仓库地址，卡片上的「GitHub」按钮',
+  `gitee_url`       VARCHAR(300) NULL DEFAULT NULL COMMENT 'Gitee 仓库地址（可选），自动抓包时的第二顺位',
+  `download_url`    VARCHAR(500) NULL DEFAULT NULL COMMENT '安装包直链。填了它就以它为准，不再去 GitHub 挑',
+  `source_mode`     VARCHAR(12)  NOT NULL DEFAULT 'auto' COMMENT '取包方式：auto 自动判断 / github / gitee / direct 只用直链 / none 不抓',
+  `version`         VARCHAR(40)  NULL DEFAULT NULL COMMENT '当前版本号，卡片上 v4.5.8 那一行',
+  `license`         VARCHAR(40)  NULL DEFAULT NULL COMMENT '协议，如 MIT / GPL-3.0，自动识别信息时带回来',
+  `icon_file`       VARCHAR(40)  NULL DEFAULT NULL COMMENT '本站图标文件名（管理员上传或智能取包后落盘的），NULL 表示没有本地图标',
+  `icon_kind`       VARCHAR(12)  NULL DEFAULT NULL COMMENT '本地图标格式，按文件头判定：png / gif / jpg / webp / ico，决定文件名与响应头；不收 svg',
+  `star_count`      INT UNSIGNED NULL DEFAULT NULL COMMENT 'GitHub star 数，自动识别时带回来；NULL 表示还没抓过',
+  `size_bytes`      BIGINT UNSIGNED NULL DEFAULT NULL COMMENT '安装包大小（字节）。抓到本地包就是实际字节数，否则是远端声明值',
+  `file_ext`        VARCHAR(12)  NULL DEFAULT NULL COMMENT '本地安装包扩展名，只允许白名单内的值',
+  `file_sha256`     CHAR(64)     NULL DEFAULT NULL COMMENT '本地安装包摘要，用于判断「远端换包了吗」',
+  `file_display`    VARCHAR(160) NULL DEFAULT NULL COMMENT '浏览器另存为时看到的文件名，已脱敏成 [A-Za-z0-9._-]',
+  `file_origin`     VARCHAR(500) NULL DEFAULT NULL COMMENT '实际落盘的来源地址（跟随重定向之后的最终 URL）',
+  `file_fetched_at` DATETIME     NULL DEFAULT NULL COMMENT '最近一次成功抓包的时间，NULL 表示服务器还没有这一份安装包',
+  `enabled`         TINYINT(1)   NOT NULL DEFAULT 1 COMMENT '是否上架：0 表示只在管理员视图里可见',
+  `sort_order`      INT          NOT NULL DEFAULT 100 COMMENT '排序，数字小的排在前面',
+  `created_at`      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '添加时间',
+  `updated_at`      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '最后修改时间',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_softs_slug` (`slug`),
+  KEY `idx_softs_listing` (`enabled`, `sort_order`, `id`),
+  KEY `idx_softs_category` (`enabled`, `category`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='软件仓库（全站共享，含服务器代下载的安装包元信息）';
+-- 侧栏要「每个分类几条」、筛选条要「每个平台几条」，这两件事都用一条 GROUP BY 解决，
+-- 所以 (enabled, category) 单独给一个索引；列表本身仍走 idx_softs_listing。
+-- file_fetched_at 是「有没有本地包」的唯一判据：下载按钮要不要显示、
+-- 「可直链下载 N 款」这个数，都只看它是不是 NULL，不去猜 file_ext。
+-- size_bytes 一列两用（远端声明值 / 本地实际值），刻意不拆成两列：
+-- 卡片上只显示一个大小，两个数同时存在时谁赢需要额外解释，不如在写入那一刻就定下来。

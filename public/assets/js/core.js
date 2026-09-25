@@ -1,15 +1,21 @@
 /* ============================================================
    web-one 前端公共脚本
-   首页（app.js）与游戏板块二级页面（games.js）共用这一份：
-   元素取用、接口调用、顶部提示条、弹窗提示文字。
+   首页（app.js）与各个二级页面（games.js / study.js / reader.js / software.js）
+   共用这一份：元素取用、接口调用、顶部提示条、弹窗提示文字、两段式确认。
 
    抽出来是为了让「怎么发请求、出错怎么显示」只有一处实现——
-   两个页面各写一份，迟早会走样，而且改一个地方必漏另一个。
+   每个页面各写一份，迟早会走样，而且改一个地方必漏另一个。
    ============================================================ */
 
 /** 与后端通信相关的公共参数 */
 const CORE = {
   apiTimeout: 5000,// 等后端返回的最长时间（毫秒），超时就不再卡住页面
+  // 「服务器代下载 / 自动识别信息」这两条是同步出网的：后端要等远端读完才回话，
+  // 五秒这一档必然先把请求掐了，把一个其实正在成功的抓包显示成失败。
+  // 卡住的连接由后端那边的 soft_fetch_timeout（两次读之间的间隔上限）断掉，
+  // 这里只需放宽到「一次几百 MB 的慢速下载也够跑完」，不当第二道守门人。
+  // 反代那头的 read timeout 要跟着放宽，见 README 的部署一节。
+  slowApiTimeout: 120000,
 };
 
 /** 按 id 取元素；取不到返回 null（不同页面元素本来就不一样，调用方自己判断） */
@@ -20,8 +26,11 @@ function el(id) {
 /**
  * 与后端接口通信的唯一出口。
  * 所有请求都走这一个函数，超时、报错、JSON 解析都在这里集中处理。
+ *
+ * @param timeoutMs 可选，这一单最多等多久。抓包这类「后端替你去下载」的请求
+ *                  要传 CORE.slowApiTimeout，默认的 5 秒是给普通读写定的。
  */
-function api(path, method, payload) {
+function api(path, method, payload, timeoutMs) {
   const options = {
     method: method || 'GET',
     headers: { Accept: 'application/json' },
@@ -32,10 +41,11 @@ function api(path, method, payload) {
     options.body = JSON.stringify(payload);
   }
   // 后端不响应时（忘了启动、端口被占）主动中断，避免页面一直等
+  const wait = timeoutMs || CORE.apiTimeout;
   const controller = typeof AbortController === 'function' ? new AbortController() : null;
   if (controller) {
     options.signal = controller.signal;
-    setTimeout(function () { controller.abort(); }, CORE.apiTimeout);
+    setTimeout(function () { controller.abort(); }, wait);
   }
 
   return fetch('/api/' + path, options).then(function (res) {
@@ -49,7 +59,7 @@ function api(path, method, payload) {
     });
   }).catch(function (err) {
     if (err.name === 'AbortError') {
-      const timeout = new Error('后端响应超时（' + CORE.apiTimeout + ' 毫秒）');
+      const timeout = new Error('后端响应超时（' + wait + ' 毫秒）');
       timeout.status = 0;
       throw timeout;
     }
@@ -123,9 +133,9 @@ function armConfirm(button, armedText, onConfirm) {
 }
 
 /* ============================================================
-   共用格式：把字数说成人话
-   住在 core.js 是因为 /read 的书架和首页的「我的用量」都要报「多少万字」，
-   两边各写一份迟早会不一样——同一本书在两个页面上显示成两个数字很难看。
+   共用格式：把字数、字节数说成人话
+   住在 core.js 是因为 /read 的书架、首页的「我的用量」和 /software 的卡片
+   都要报这几个数，两边各写一份迟早会不一样——同一个数在两个页面上长成两个样子很难看。
    ============================================================ */
 function formatChars(n) {
   const value = parseInt(n, 10) || 0;
@@ -133,6 +143,17 @@ function formatChars(n) {
   // 整万要丢掉小数点：配额这类数天生是整数，写成「5000.0 万字」像页面坏了一半
   const wan = Math.round(value / 1000) / 10;
   return (wan % 1 === 0 ? String(wan) : wan.toFixed(1)) + ' 万字';
+}
+
+/** 文件大小说成人话：别让人看见 1572864 这种数（/read 的导入与 /software 的卡片都用它） */
+function formatBytes(n) {
+  const value = parseInt(n, 10) || 0;
+  if (value < 1024) return value + ' B';
+  if (value < 1024 * 1024) return Math.round(value / 1024) + ' KB';
+  // 安装包能到几百 MB、配额是 GB 级的，所以最高一档要到 GB：
+  // 只到 MB 的话，2 GB 的配额会写成「2048.0 MB」，谁都要心算一下
+  if (value < 1024 * 1024 * 1024) return (Math.round(value / 1024 / 1024 * 10) / 10).toFixed(1) + ' MB';
+  return (Math.round(value / 1024 / 1024 / 1024 * 10) / 10).toFixed(1) + ' GB';
 }
 
 /* ============================================================
@@ -158,5 +179,13 @@ function coreSelfTest() {
   assert(formatChars(50000000) === '5000 万字', '整万要丢掉小数点：配额这类数最常见就是整万');
   assert(formatChars(null) === '0 字', '没给数也不能是 NaN');
   assert(formatChars('abc') === '0 字', '不是数字也不能把 NaN 印到页面上');
+  assert(formatBytes(512) === '512 B', '小文件按字节报');
+  assert(formatBytes(2048) === '2 KB', '2048 字节是 2 KB');
+  assert(formatBytes(1572864) === '1.5 MB', '一兆半写成 1.5 MB，不甩一串大数字');
+  assert(formatBytes(2147483648) === '2.0 GB', 'GB 级的那一档要走到 GB，不能写成 2048.0 MB');
+  assert(formatBytes(null) === '0 B', '字节数也不能是 NaN');
+  // 抓包那类请求放宽的那一档必须真的更宽：反过来会把一个正在成功的下载掐断，
+  // 而且报出来的是「超时」，看上去像后端的错
+  assert(CORE.slowApiTimeout > CORE.apiTimeout, '同步出网的等待上限要比普通请求更宽');
 }
 SMOKE_TESTS.push(coreSelfTest);

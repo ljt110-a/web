@@ -2,8 +2,8 @@
 
 一个能真正跑起来的「前端 + PHP 后端 + MySQL」项目，带完整的用户认证：
 注册、登录、退出、会话管理、修改密码、邮箱验证、找回密码、后台管理，
-外加一个留言板、一个私有备忘录、一个游戏板块、一个学习板块与一个小说阅读板块
-（各有独立地址），一个只有管理员看得到的资源监控面板，以及一节人人都能看的「我的用量」。
+外加一个留言板、一个私有备忘录、一个游戏板块、一个学习板块、一个小说阅读板块
+与一个软件仓库（各有独立地址），一个只有管理员看得到的资源监控面板，以及一节人人都能看的「我的用量」。
 
 ## 这一版由三层组成
 
@@ -17,12 +17,12 @@ PHP 写的注册、登录、退出、改密与后台接口；密码用 bcrypt �
 
 **MySQL 数据库 · `web_one` 库**
 `users` / `sessions` / `visits` / `auth_attempts` / `one_time_tokens` / `messages` / `memos` / `games` /
-`pomodoros` / `novels` / `novel_chapters` 十一张表，全部用预处理参数写入；换电脑、换浏览器看到的都是同一份数据。
+`pomodoros` / `novels` / `novel_chapters` / `softs` 十二张表，全部用预处理参数写入；换电脑、换浏览器看到的都是同一份数据。
 
 > 这段内容原来是首页那三张卡片（`.cards-section`）。卡片区块已经整段去掉，
 > 信息搬到了这里——README 比首页更适合承载「项目由哪几层组成」这类说明。
-> 顺带把卡片里的「五张表」一路更正到今天的十一张（陆续加了留言板、备忘录、游戏板块、
-> 学习板块与小说的两张表）。
+> 顺带把卡片里的「五张表」一路更正到今天的十二张（陆续加了留言板、备忘录、游戏板块、
+> 学习板块、小说的两张表与软件仓库）。
 
 ```
 web-one/
@@ -32,14 +32,15 @@ web-one/
 │   ├── games.html             二级页面：游戏板块（地址 /games，含两个小游戏与一个物理沙盒）
 │   ├── study.html             二级页面：学习板块 / 番茄钟（地址 /study）
 │   ├── read.html              二级页面：小说阅读（地址 /read，书架 + 文件导入 + 阅读器）
+│   ├── software.html          二级页面：软件仓库（地址 /software，侧栏筛选 + 卡片 + 管理员编辑器）
 │   ├── offline.html           离线兜底页：断网且缓存里也没有这一页时由 sw.js 拿出来
 │   ├── sw.js                  Service Worker：先网络后缓存，接口与跨域一律不接管
 │   ├── .htaccess              Apache 重写与安全响应头
 │   └── assets/
-│       ├── css/style.css      全站样式，17 个章节
+│       ├── css/style.css      全站样式，18 个章节
 │       ├── img/icon-192.png   PWA 应用图标（另有一张 icon-512.png）
 │       └── js/
-│           ├── core.js        四个页面共用：api() / el() / 提示条 / 两段式确认 / SMOKE_TESTS
+│           ├── core.js        五个页面共用：api() / el() / 提示条 / 两段式确认 / SMOKE_TESTS
 │           ├── app.js         首页专用：登录注册、留言板、备忘录、系统状态
 │           ├── fx.js          首页专用：canvas 背景光束 + 三棱镜、各区块的滚动入场
 │           ├── games.js       游戏板块专用：列表渲染、跳转、管理员增删改
@@ -47,7 +48,8 @@ web-one/
 │           ├── physics.js     游戏板块专用：弹球沙盒（重力 / 碰撞 / 拖拽甩球），也不碰后端
 │           ├── study.js       学习板块专用：番茄钟计时、记录增删与统计
 │           ├── reader.js      阅读板块专用：书架、文件导入与解码、翻页排版、进度与离线副本
-│           └── pwa.js         四个页面共用：注册 Service Worker + 「安装到桌面」入口
+│           ├── software.js    软件仓库专用：筛选排序分组、卡片渲染、管理员表单与抓包
+│           └── pwa.js         五个页面共用：注册 Service Worker + 「安装到桌面」入口
 ├── src/                       后端代码，浏览器访问不到
 │   ├── api.php                接口路由：每个接口对应一个函数
 │   ├── auth.php               注册、登录、会话、改密、邮箱验证、密码重置、require_login / require_admin
@@ -62,6 +64,8 @@ web-one/
 │   ├── games.php              游戏板块：内容表，前台只读 + 管理员增删改
 │   ├── study.php              学习板块：番茄钟记录，按账号隔离
 │   ├── novels.php             小说阅读：章节识别、按账号隔离的书架与阅读进度
+│   ├── software.php           软件仓库：条目增删改、取包来源解析、图标、配额与落盘
+│   ├── softnet.php            受控出网的 socket HTTP/1.1 客户端（白名单、内网拒绝、逐跳重定向、流式上限）
 │   ├── system.php             资源监控：内存 / 磁盘 / MySQL 指标与采样趋势
 │   ├── db.php                 PDO 连接（预处理、异常、时区）
 │   ├── orm.php                查询构造器：列名白名单 + 参数绑定 + 拒绝无条件写操作
@@ -77,24 +81,24 @@ web-one/
 │   ├── migrate.php            只升级结构，幂等，可反复执行
 │   └── doctor.php             环境体检：出问题时第一个跑它
 ├── tests/
-│   ├── run.php                端到端测试入口（1008 项断言）
+│   ├── run.php                端到端测试入口（1680 项断言）
 │   ├── lib.php                轻量断言框架与 HTTP 客户端
 │   ├── fake_smtp.php          假 SMTP 服务器，用来真实验证 SMTP 客户端
+│   ├── fake_http.php          假 HTTP 源站，让「服务器代下载」整条链路不依赖外网
 │   ├── js-smoke.js            前端启动烟测：在假 DOM 里把每个页面的脚本跑一遍
 │   └── cases/                 按主题拆分的用例（基础 / 认证 / 账号 / 后台 / 访问统计 /
 │                              SMTP / 留言板 / 备忘录 / 资源监控 / 游戏板块 / 学习板块 /
-│                              前端烟测 / 查询构造器 / PWA / 物理沙盒 / 小说阅读）
+│                              前端烟测 / 查询构造器 / PWA / 物理沙盒 / 小说阅读 / 软件仓库）
 ├── deploy/
 │   ├── nginx.conf.example     Nginx 站点配置示例（含环境变量怎么传给 PHP-FPM）
 │   └── CHECKLIST.md           上线前检查清单
-├── var/                       运行期产物：logs / mail / backup / 测试输出（不进 git）
 ├── tools/                      本地维护脚本（命令行用，不参与 Web 请求）
 │   ├── lib.php                启动/停止共用的底层工具（端口探测、等就绪、查进程）
 │   ├── launch.php             一键启动：装库 → 挑端口 → 起服务 → 开浏览器
 │   └── stop.php               停止服务：只结束 php.exe，不碰别人的进程
 ├── start.bat                  双击：一键启动并打开网站
 ├── stop.bat                   双击：停止服务
-└── var/                       运行期产物（日志、邮件、采样、备份；不进 git）
+└── var/                       运行期产物（日志、邮件、采样、备份、软件仓库的安装包与图标；不进 git）
 ```
 
 ## 环境要求
@@ -244,6 +248,19 @@ UPDATE users SET password_hash = '刚才那串哈希', password_changed_at = NOW
 | `GET` | `/api/novel` | 登录 | 开一本书：只回书目信息与整份目录，**不含正文** |
 | `GET` | `/api/novel/chapter` | 登录 | 取一章正文，参数 `?id=&seq=`；带 `total` / `hasPrev` / `hasNext` |
 | `POST` | `/api/novel/progress` | 登录 | 存阅读进度，请求体 `{id,chapter,paragraph}`（章号 + 章内第几段） |
+| `GET` | `/api/software` | 公开 | 软件仓库清单：**只含已上架的**，附侧栏三类计数与页头统计（结果与身份无关） |
+| `GET` | `/api/software/file` | 公开 | 下载安装包，参数 `?id=`；返回的是文件流不是 JSON |
+| `GET` | `/api/software/icon` | 公开 | 取本地图标，参数 `?id=`；图片流（外链图标会让 CSP 的 `img-src 'self' data:` 拦掉） |
+| `GET` | `/api/admin/software` | 管理员 | 同一份清单，多了下架条目、管理字段（来源、 sha256、时间）与全站 `quota` |
+| `POST` | `/api/admin/software` | 管理员 | 新增一款，请求体见 `/software` 那一页的表单字段 |
+| `POST` | `/api/admin/software/update` | 管理员 | 部分更新，请求体 `{id,...}`；上下架（`enabled`）也走这一条 |
+| `DELETE` | `/api/admin/software` | 管理员 | 删除一款，请求体 `{id}`；本地安装包与图标一起清掉 |
+| `POST` | `/api/admin/software/grab` | 管理员 | **服务器代下载**，请求体 `{id}`；同步出网，可能要几十秒 |
+| `POST` | `/api/admin/software/release` | 管理员 | 不再代下载：删本地安装包，条目与图标留着，请求体 `{id}` |
+| `POST` | `/api/admin/software/identify` | 管理员 | 自动识别信息：只读仓库元数据回给表单，**不写库、不落盘**，请求体 `{githubUrl?,giteeUrl?}` |
+| `POST` | `/api/admin/software/icon` | 管理员 | 上传图标：base64 塞在 JSON 里（全站写操作都是 JSON），请求体 `{id,dataUrl}` |
+| `POST` | `/api/admin/software/icon/fetch` | 管理员 | 智能获取图标：按 GitHub / Gitee 仓库头像依次抓，请求体 `{id}` |
+| `DELETE` | `/api/admin/software/icon` | 管理员 | 去掉本地图标，请求体 `{id}`；安装包留着 |
 | `GET` | `/api/admin/users` | 管理员 | 统计 + 用户列表，支持 `?page=&perPage=&q=` |
 | `DELETE` | `/api/admin/users` | 管理员 | 删除用户，请求体 `{username}` |
 | `POST` | `/api/admin/reset-password` | 管理员 | 后台重置普通用户的密码，请求体 `{username,newPassword}` |
@@ -274,6 +291,10 @@ curl -s -X POST -H "Content-Type: application/json" \
 - `novels` — 小说：**私有数据**，有 `user_id` / 书名 / 章数 / 总字数 / 进度章号 / 进度段号
 - `novel_chapters` — 章节正文：`novel_id` 外键 `ON DELETE CASCADE`、`seq`、标题、正文（`MEDIUMTEXT`）；
   一本书一章一行，`(novel_id, seq)` 唯一
+- `softs` — 软件仓库：名称 / 英文标识（生成锚点）/ 分类 / 版本 / 协议 / star 数 / 标签（JSON 数组）/
+  平台（JSON 数组）/ 简介 / 三个来源地址 / 取包方式 / 排序 / 上下架开关，
+  外加本地安装包的落盘信息（文件名、字节数、sha256、抓取时间、来源），图标同理；
+  **全站共用的一份表，不按账号隔离**（和 `games` 一样，只有管理员能改）
 
 想直接看数据：
 
@@ -369,8 +390,8 @@ $n   = db_table('memos')->where('id', $id)->where('user_id', $uid)->update(['don
 
 ## 二级页面与扩展方式
 
-首页是一级页面（单页，板块之间靠锚点滚动）；游戏板块 `/games`、学习板块 `/study`
-与阅读板块 `/read` 是**二级页面**，各有独立地址。
+首页是一级页面（单页，板块之间靠锚点滚动）；游戏板块 `/games`、学习板块 `/study`、
+阅读板块 `/read` 与软件仓库 `/software` 是**二级页面**，各有独立地址。
 
 它们没有做成孤立的静态文件，而是走同一个前置控制器：`public/index.php` 里有一张
 「路径 → 模板文件」的表，加一个页面只需要往表里加一行 ——
@@ -389,6 +410,9 @@ $pages = [
     '/read' => 'read.html',            // 阅读板块（小说）：二级页面
     '/read/' => 'read.html',
     '/read.html' => 'read.html',
+    '/software' => 'software.html',    // 软件仓库：二级页面
+    '/software/' => 'software.html',
+    '/software.html' => 'software.html',
 ];
 ```
 
@@ -404,7 +428,7 @@ $pages = [
 
 前端脚本也拆成了两层：`core.js` 放几个页面都要用的东西
 （`api()`、`el()`、提示条、两段式确认，以及 `SMOKE_TESTS` 这个规则自测登记表），
-`app.js`、`games.js`、`arcade.js`、`physics.js`、`study.js`、`reader.js` 各管自己的页面。
+`app.js`、`games.js`、`arcade.js`、`physics.js`、`study.js`、`reader.js`、`software.js` 各管自己的页面。
 抽这一层不是为了好看——`api()` 一旦写两份，改超时、改错误处理时必然漏掉一个。
 
 ### 首页的背景光束与入场动画
@@ -693,6 +717,87 @@ PHP 侧的用例拿到的是已经解好的字符串，看不出解错过没错�
 用户看到的是「导入失败」，书架上多了一本书，再点一次又多一本。**放开大文件之前，先确保 `display_errors` 是关的**
 （这一条在 `deploy/CHECKLIST.md` 里也钉着）。
 
+### 软件仓库：收录一款工具，安装包由服务器代下载（`/software`）
+
+第 11 项「仿照图片新增板块」的产物。左边一栏按分类分组并带上每类的数量，右边是卡片：
+图标（没有本地图标时显示首字母）、软件名 + ★、分类徽章、`#标签`、支持的平台、两行简介、
+`v0.19.1 · MIT · 11.7 MB` 这一行元信息，以及 GitHub / 官网 / 下载三个按钮。
+上方是平台与标签两套 chip（chip 后面的数由后端一次算好）、一个搜索框、
+排序下拉（含「按标签分组」）与网格 / 列表切换。
+
+访客那份清单**永远只含已上架的**（`GET /api/software`），下架条目只有管理员那份
+（`GET /api/admin/software`）看得到 —— 和 `/api/games` 是同一套约定：结果不随调用者身份变化，
+缓存、排障和测试才不用考虑「谁在打这个接口」。
+
+**「服务器代下载」是本站第一次由服务器主动出网**，所以这一板块真正的功能其实是那道闸
+（`src/softnet.php`，一个不依赖 curl 扩展的 socket HTTP/1.1 客户端）：
+
+- 只认 `http` / `https`，主机名必须在 `soft_fetch_hosts` 白名单里；比的是解析之前的主机名，
+  所以 `http://api.github.com.evil.test/` 这种外壳骗不过去。
+- 域名先解析成 IP，落在内网 / 回环 / 链路本地 / 组播段就直接拒 —— 挡的是「白名单域名被 DNS 指到内网」
+  和「路由器管理口」这两类。`soft_fetch_allow_private` 只为测试留一条活路（本机假源站），
+  生产必须保持 `false`，`database/doctor.php` 与安全提示会盯着它。
+- 每一跳重定向都重新把上面两条走一遍（GitHub 的下载本来就换域名，跳过白名单等于没闸）。
+- TLS 校验开着：下载下来的是要发给访客的安装包，中间人换包等于投毒。
+- 边下边数，超过 `soft_max_file_bytes` 立刻中断并删掉 `.part`；全部安装包合计还要过 `soft_quota_bytes` 这一道。
+- 扩展名白名单 + 按文件头认内容：`.md` / `.txt` / `.php` / `.html` / `.js` / `.svg` 这类文本、脚本、网页一律不收。
+  放一个 HTML 进来，浏览器点开它就是在本站域名下跑别人的脚本。
+- 落盘文件名先经 `softnet_safe_name()` 洗过（目录穿越、控制字符、超长都砍），最终一律叫 `id.扩展名`；
+  这个目录在 `var/` 下、Web 根之外，只能经 `/api/software/file?id=` 发出去 —— 每一次下载都要再判断一遍
+  「上架了吗、包真的在吗」。
+- **抓失败什么都不改**：库里那条还是旧记录，磁盘上不留半成品，界面上一句「为什么没抓到」。
+
+三道大小闸各管各的，别把它们混成一条：
+
+| 配置键 | 默认 | 环境变量 | 挡什么 |
+| --- | --- | --- | --- |
+| `soft_fetch_enabled` | `true` | `WEB_ONE_SOFT_FETCH_ENABLED` | 出网总开关。关掉之后识别、抓包、抓图标三个动作一律拒绝，列表和已经落盘的包照常可用 |
+| `soft_fetch_hosts` | GitHub / Gitee 那几个域名 | `WEB_ONE_SOFT_FETCH_HOSTS` | 允许出网的主机白名单，加源站改这一行就够，不用动代码 |
+| `soft_fetch_timeout` | 20 秒 | `WEB_ONE_SOFT_FETCH_TIMEOUT` | **建连与两次读之间**的间隔，不是整条请求的总时长 |
+| `soft_fetch_max_redirect` | 3 | `WEB_ONE_SOFT_FETCH_MAX_REDIRECT` | 最多跟几跳 |
+| `soft_fetch_meta_bytes` | 300 KB | `WEB_ONE_SOFT_FETCH_META_BYTES` | 仓库元数据的响应体上限（识别用不到这么多，防的是拿一个 GB 的 JSON 撑内存） |
+| `soft_icon_max_bytes` | 200 KB | `WEB_ONE_SOFT_ICON_MAX_BYTES` | 单个图标上限，超了当没抓到 |
+| `soft_max_file_bytes` | 200 MB | `WEB_ONE_SOFT_MAX_FILE_BYTES` | 单个安装包 |
+| `soft_quota_bytes` | 2 GB | `WEB_ONE_SOFT_QUOTA_BYTES` | 全部安装包的总占用 |
+| `soft_max_count` | 300 | `WEB_ONE_SOFT_MAX_COUNT` | 这张表最多收录多少款 |
+| `soft_fetch_allow_private` | `false` | `WEB_ONE_SOFT_FETCH_ALLOW_PRIVATE` | 只给测试用；生产开着它等于把内网交给这条链路 |
+
+**「自动识别信息」与「智能获取图标」只读不写。** 识别回来的是 `version`、`starCount`、`license`、
+`description`、`homepage` 五格，填进表单等管理员核对后再保存 —— 认错了来源也不至于把库改脏
+（`POST /api/admin/software/identify`）。来源顺序是 GitHub → Gitee，一家都报不出结果时，
+把「试过谁、各自为什么不行」一起回成一句，而不是只说「失败」。仓库 API 的地址由 `software_repo_api()` 拼，
+测试白名单里没有 `api.github.com`，所以字段解析这一层由 `software_repo_json` / `software_repo_meta` /
+`software_release_version` / `software_identify_one` 直接打假源站验（`tests/fake_http.php`）。
+
+**这类请求比别的接口慢得多，两头都要放宽。** 前端对抓包、识别、抓图标三个动作用的是
+`CORE.slowApiTimeout`（120 秒），不是默认的 5 秒；反代那边 —— nginx 的 `fastcgi_read_timeout`
+（本站是 `fastcgi_pass`，不是 `proxy_pass`，`deploy/nginx.conf.example` 里已从 30s 提到 180s）、
+PHP-FPM 的 `request_terminate_timeout`、以及云负载均衡的空闲超时 —— 默认常常只有 30 到 60 秒，
+会先于服务器断：那一发看到的是网关的一页 504 而不是一段 JSON，界面上说不出这次抓到了哪一步。
+让浏览器的 120 秒先到才有意义 —— 超时之后刷新一下，「大小 / 抓取时间」变没变就是这一次成没成，
+因为落盘的顺序是先写文件、成功后才写库。
+
+**PHP 自己也有一刀，而且 Windows 上那一刀更利。** `max_execution_time` 在 Linux 上只算 CPU 时间
+（等网络不计时），在 Windows 上算的是**墙上时间** —— 实测把它调成 2 秒、再跑一个纯 `sleep()` 的八秒循环，
+会被 `Maximum execution time exceeded` 杀掉；同一个循环里每轮补一句 `set_time_limit()` 就跑得完。
+所以 `SoftnetConn::fill()` 每从 socket 读到一次数据，就把这道时限往前拨一次，
+拨的是 `max(30, 2 × soft_fetch_timeout)` 秒。于是：一直在传字节的慢请求不会被 PHP 掐掉，
+而卡住的连接仍然由 `stream_set_timeout` 判成「等待远端响应超时」——
+那个数刻意只有它的一半，为的是让**说得清原因的那一刀先落**。
+这一条只能钉源码（`tests/cases/17-software.php` 里现读 `src/softnet.php` 的 `fill()` 函数体），
+因为用例都跑在默认 30 秒之下、每次抓包几百毫秒就结束，删掉那句续命不会有任何 HTTP 断言变红。
+
+**配额那一行只有管理员看得到。** `quota`（已用字节 / 包数 / 上限）只出现在 `GET /api/admin/software` 里，
+访客与普通账号的响应根本没有这个字段。这和「运行状态」「我的用量」是同一道边界：
+各人自己那份用量对本人放开，全服务器共用的资源数字只给管理员 ——
+所以这一页刻意没有为了「让访客也看到剩余空间」去开一个只读的公开口子。
+
+> 实测记下来的一件事：这台开发机上 `github.com` 的 archive 地址连不通（TCP 建连超时），
+> 而 `api.github.com`、`codeload.github.com`、`avatars.githubusercontent.com` 都通。
+> 于是同一次操作里「识别信息」和「智能获取图标」都成功，只有抓 `tar.gz` 那一步报连接失败。
+> `softnet_connect()` 因此在 TLS 失败时把底层那句警告一起带出来（IP 不打进界面），
+> 免得照着「证书校验未通过」这条线索去查 CA —— 真正的原因常常是网络不通。
+
 ### 做成可安装的 PWA（手机 / 车机上的「客户端」）
 
 第 8 项「变成客户端 / 车机端」选的是 PWA 这条路，而不是 Electron / Tauri 那种套壳：
@@ -831,7 +936,7 @@ MySQL 连接数、各磁盘使用率几张卡片加两条趋势折线常驻显�
   留言板读公开写要登录、发帖限流、作者或管理员可删；
   备忘录按账号隔离、支持完成勾选与行内编辑、有每账号条数上限
 - **游戏板块（二级页面 `/games`）**：导航栏「首页」是一个下拉菜单，
-  点它（桌面端鼠标悬停也行）动画展开「游戏 / 学习 / 阅读 / 留言板 / 备忘录」，点哪个去哪个；
+  点它（桌面端鼠标悬停也行）动画展开「游戏 / 学习 / 阅读 / 软件 / 留言板 / 备忘录」，点哪个去哪个；
   收录王者荣耀与原神，每张卡片跳转到官网；管理员可在页面上直接添加、上下架、删除，
   背后的 `POST /api/admin/games` 就是预留好的添加入口
 - **学习板块与番茄钟（二级页面 `/study`）**：手写 SVG 进度环 + 按截止时刻计算的计时器，
@@ -841,6 +946,12 @@ MySQL 连接数、各磁盘使用率几张卡片加两条趋势折线常驻显�
   限的是每个账号书架上的总量，接口只收纯文本——改名成 .txt 的 exe / zip 在选文件那一步就被本地拦下；
   前端是书架 + 阅读器（目录跳章、字号七档 16–32px、三种底色、进度存到段、读过的章节离线还在）；
   识别规则、配额与「不是文本」的判断、账号隔离全部由 `tests/cases/16-novel.php` 逐条钉住（详见上面那一节）
+- **软件仓库（二级页面 `/software`）**：收录我自己用的工具，侧栏按分类分组、平台与标签两套 chip、
+  关键词搜索、五种排序（含「按标签分组」）、网格 / 列表两种视图；卡片上是图标（没有本地图标时退成首字母）、
+  软件名 + ★、分类徽章、`#标签`、平台、两行简介与 `v0.19.1 · MIT · 11.7 MB` 这一行，
+  外加 GitHub / 官网 / 下载三个按钮。**管理员在这一页直接新增、改、上下架、删除，
+  还能让服务器代下载**（同步出网，认仓库最新 release / 直链），以及「自动识别信息」与「智能获取图标」
+  两个只读表单的动作 —— 这一条链路是本站第一次由服务器主动出网，所以它的闸门有整整一节（见上面）
 - **两个小游戏 + 一个物理沙盒（都在 `/games`）**：2048、贪吃蛇，和「重力 / 弹性 / 碰撞 /
   拖拽甩球」的弹球画布，全部规则手写、不碰后端，配渐变标题与 3D 翻面卡片；
   三块逻辑的规则由烟测里的两组自测真实跑过一遍（详见上面两节）
@@ -867,7 +978,9 @@ MySQL 连接数、各磁盘使用率几张卡片加两条趋势折线常驻显�
 - **代码质量**：安装与迁移逻辑抽到 `database/lib.php` 由脚本和测试共用、
   时间格式化等公共函数归位、`bootstrap.php` 加幂等守卫（入口多加载一次不会再致命错误）、
   后台与留言 / 备忘录的三处「两段式确认」合并成一个 `armConfirm()` 实现
-- **测试**：`tests/` 下 1008 项端到端断言，含一个假 SMTP 服务器真实验证 SMTP 客户端、
+- **测试**：`tests/` 下 1680 项端到端断言，含一个假 SMTP 服务器真实验证 SMTP 客户端、
+  一个假 HTTP 源站（`tests/fake_http.php`，用来把「服务器代下载」整条链路跑真：分块、重定向、超时、
+  大小上限、落盘命名，没有一步换成桩）、
   一个用假 DOM 把每个页面脚本跑一遍的前端启动烟测（`tests/js-smoke.js`），
   以及一组直接断言 SQL 拼装结果的构造器用例（`tests/cases/13-orm.php`）；
   在独立测试库上跑，不碰正式数据
@@ -911,6 +1024,17 @@ MySQL 连接数、各磁盘使用率几张卡片加两条趋势折线常驻显�
     CHECKLIST 写着「`post_max_size` 出厂默认 8M 够用」，而实测 8M 会让一次**已经成功**的导入看起来像失败；
     两处正文与清单说插章节是「一条批量 INSERT」，代码其实是 prepare 一次、逐章 `execute`，
     照着旧说明去判断 `max_allowed_packet` 会得出相反的结论（真正要担心的是 `memory_limit`）
+12. **粘来的是 clone 地址，识别就必然 404**：管理员填 GitHub 仓库地址时常常直接抄
+    `https://github.com/owner/repo.git`，那个 `.git` 会跟着落进路径第二段，
+    拼出来的接口地址成了 `/repos/owner/repo.git` —— 远端回 404，界面上一句「没识别出来」。
+    现在 `software_repo_path()` 把结尾的 `.git` 去掉，测试钉了这条
+13. **「证书校验未通过」是一句会带错方向的话**：`github.com` 的 archive 地址在这台机器上连不通
+    （TCP 建连超时），报出来的却是「证书校验未通过或对方不支持 TLS」，照着这句话会去查 CA。
+    `softnet_connect()` 现在把底层那句警告一起带出来（只留 IP 不打进界面），
+    分清「连不上」和「证书不对」
+14. **`starCount` 只进得来、出不去**：「自动识别信息」认回来的 star 数没有能写入的字段，
+    表单填好了点保存就丢掉。补了 `software_star_count()` 校验（负数与小数 422，
+    留空是「不知道」而不是 0）并接进新增 / 修改两条路径
 
 ## 还没做的
 
@@ -946,11 +1070,18 @@ MySQL 连接数、各磁盘使用率几张卡片加两条趋势折线常驻显�
   所以只有「光看字节数就知道书架装不下」的会被提前挡掉，卡在这个门槛以内的要先占一块内存才知道装不装得下。
   配额本身也**只算字数**：一个账号狂灌 30 本百万字的书，先撞上的是本数上限而不是 150 MB。
   全文搜索、按字数分页以外的排版控制（字体、行距、页边距）也都没有
-- 二级页面有 `/games`、`/study`、`/read` 三个，再加第四个要把 `public/index.php` 里那张表
+- 软件仓库只做到「收录 + 代下载」这一层：**分类是自由文本**，没有受控词表，
+  靠表单里的 `datalist` 提示复用同一个写法（侧栏才不会裂成「系统工具」和「系统 工具」）；
+  **安装包不扫描、不校验能不能跑**，闸门只管类型与大小，一个合法的 zip 里装什么它不知道；
+  抓回来的包**不会定期复检**，远端换包、删包都只体现在这一份静态副本上（这正是代下载的目的，
+  但也意味着本站要一直背着它）；**没有分页**，300 款一次全返回（它是人工维护的短名单，不是用户内容）；
+  「自动识别信息」只认 GitHub / Gitee 两家的仓库 API 与 `releases/latest`，
+  没有 release 只有 tag 的仓库认不出版本号，得手工填那一格
+- 二级页面有 `/games`、`/study`、`/read`、`/software` 四个，再加第五个要把 `public/index.php` 里那张表
   和导航、页脚的链接一起整理一遍；窄屏下导航链接整块隐藏（模板原本就这样），
   所以页脚放了一排站点链接作为手机上的导航区，没有做汉堡菜单
 - 查询构造器目前覆盖 `memos` / `pomodoros` / `novels` / `novel_chapters` 四张表，
-  `auth` / `visits` / `messages` / `games` / `system` 仍在写原生 SQL（它们多表 JOIN 与聚合，
+  `auth` / `visits` / `messages` / `games` / `softs` / `system` 仍在写原生 SQL（它们多表 JOIN 与聚合，
   套链式 API 反而更难读）；新表要不要走构造器，按「有没有 JOIN」判断就行
 - 资源监控只覆盖 PHP 与 MySQL 两层，没有操作系统级的内存 / CPU 曲线（原因见上文）
 - PWA 只做到「能装 + 断网能看到看过的页面」这一层：
@@ -965,7 +1096,7 @@ MySQL 连接数、各磁盘使用率几张卡片加两条趋势折线常驻显�
 
 ## 上线前
 
-看 `deploy/CHECKLIST.md`。它把「环境 → 配置 → 账号 → HTTPS → 邮件 → 限流 → 备份 → 监控」
+看 `deploy/CHECKLIST.md`。它把「环境 → 配置 → 账号 → HTTPS → 邮件 → 限流 → 备份 → 出网闸门 → 监控」
 逐条列清了，每条都写了为什么和怎么验。Nginx 的站点配置见 `deploy/nginx.conf.example`。
 
 ## 常见问题

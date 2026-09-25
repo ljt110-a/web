@@ -195,6 +195,9 @@ function security_warnings()
     if (cfg('db_user') === 'root') {
         $warnings[] = '数据库用的是 root 账号：线上建议单独建一个只对 web_one 库有权限的账号';
     }
+    if (cfg('soft_fetch_allow_private')) {
+        $warnings[] = 'soft_fetch_allow_private 为 true：软件仓库允许去抓内网地址。这是给测试用的假源站留的口子，线上必须关掉';
+    }
 
     return $warnings;
 }

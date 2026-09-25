@@ -19,6 +19,9 @@ $root = dirname(__DIR__);
 
 // 需要一个没被占用的端口；8110 起，逐个往上试
 $port = 8123;
+// 软件仓库的「假源站」另起一个端口：被测代码真的走 socket 出网，
+// 只是对面那台服务器是我们自己起的（见 tests/fake_http.php）
+$softSourcePort = 8124;
 
 $env = [
     'WEB_ONE_ENV' => 'local',
@@ -53,6 +56,19 @@ $env = [
     'WEB_ONE_STATS_SAMPLE_INTERVAL' => '0',
     // 测试用的采样目录单独放，不去动开发时的 var/stats
     'WEB_ONE_STATS_DIR' => $root . '/var/test-stats',
+    // ---------- 软件仓库 ----------
+    // 出网的目标只有本机那台假源站：于是「大小上限 / 分块传输 / 重定向跳出白名单 /
+    // 文件名带目录穿越」这些分支都能真的跑一遍，而测试不依赖外网、也不碰 GitHub 的限流。
+    'WEB_ONE_SOFT_DIR' => $root . '/var/test-softs',
+    'WEB_ONE_SOFT_FETCH_HOSTS' => '127.0.0.1:' . $softSourcePort,
+    // 假源站就在回环地址上，所以「不许连内网」这一条必须在测试里放行；
+    // 它自己那条断言由用例临时改回 false 来验证（见 17-software.php）。
+    'WEB_ONE_SOFT_FETCH_ALLOW_PRIVATE' => '1',
+    'WEB_ONE_SOFT_FETCH_TIMEOUT' => '3',
+    // 单包 200 KB、总配额 400 KB：几秒钟就能撞上「大小超限」和「配额满」两条分支
+    'WEB_ONE_SOFT_MAX_FILE_BYTES' => '200000',
+    'WEB_ONE_SOFT_QUOTA_BYTES' => '400000',
+    'WEB_ONE_SOFT_MAX_COUNT' => '3',
     'WEB_ONE_LOG_REQUESTS' => '0',
 ];
 
@@ -104,6 +120,11 @@ foreach (['/server.out.log', '/server.err.log'] as $name) {
 foreach ((array) glob($root . '/var/test-stats/*.ndjson') as $file) {
     @unlink($file);
 }
+// 上一轮抓下来的安装包与图标同样清掉：用例要靠「目录里到底有没有这个文件」
+// 来判断「删除软件有没有连文件一起删」，留着旧文件就会假通过。
+foreach ((array) glob($root . '/var/test-softs/*') as $file) {
+    @unlink($file);
+}
 
 // ------------------------------------------------------------
 // 3. 起服务器
@@ -119,6 +140,21 @@ if (!t_wait_for_server($port, 10)) {
     echo "被测服务器在 10 秒内没有开始监听 {$port}，stderr 末尾：\n" . t_server_log($root) . "\n";
     exit(1);
 }
+
+// ------------------------------------------------------------
+// 3.5 假源站：软件仓库的下载用例要有一个真的能打出 HTTP 请求的对面
+// ------------------------------------------------------------
+$softSource = t_soft_source_start($root, $softSourcePort);
+if ($softSource === null) {
+    echo "无法启动假源站（proc_open 失败）\n";
+    exit(1);
+}
+if (!t_wait_for_server($softSourcePort, 10)) {
+    echo "假源站在 10 秒内没有开始监听 {$softSourcePort}，stderr 末尾：\n" . t_soft_source_log($root) . "\n";
+    exit(1);
+}
+$GLOBALS['T_SOFT_URL'] = 'http://127.0.0.1:' . $softSourcePort;
+echo "假源站已就绪：http://127.0.0.1:{$softSourcePort}（软件仓库的下载用例打的是它）\n";
 
 // ------------------------------------------------------------
 // 4. 跑用例

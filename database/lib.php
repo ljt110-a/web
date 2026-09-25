@@ -269,7 +269,7 @@ function install_counts()
 {
     install_ensure_database();
     $counts = [];
-    foreach (['users', 'sessions', 'visits', 'auth_attempts', 'one_time_tokens', 'messages', 'memos', 'games', 'pomodoros', 'novels', 'novel_chapters'] as $table) {
+    foreach (['users', 'sessions', 'visits', 'auth_attempts', 'one_time_tokens', 'messages', 'memos', 'games', 'pomodoros', 'novels', 'novel_chapters', 'softs'] as $table) {
         if (!sql_table_exists($table)) {
             $counts[$table] = null;
             continue;

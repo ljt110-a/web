@@ -69,9 +69,10 @@ t_eq($manifest, $res['json'], '两个地址给出的是同一份清单');
 $res = t_request('GET', '/manifest.webmanifest/extra');
 t_eq(404, $res['status'], '清单下面再挂路径仍然 404（没有变成任意文件读取）');
 
-t_section('PWA：四个页面都挂了入口');
+t_section('PWA：五个页面都挂了入口');
 
-foreach (['/' => '首页', '/games' => '游戏板块', '/study' => '学习板块', '/read' => '阅读板块'] as $path => $label) {
+foreach (['/' => '首页', '/games' => '游戏板块', '/study' => '学习板块',
+        '/read' => '阅读板块', '/software' => '软件仓库'] as $path => $label) {
     $res = t_request('GET', $path);
     t_contains($res['body'], 'rel="manifest"', $label . '里有清单链接');
     t_contains($res['body'], 'name="theme-color"', $label . '里有 theme-color（手机状态栏跟着变色）');

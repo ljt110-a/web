@@ -436,12 +436,60 @@ function t_wait_for_server($port, $timeoutSeconds = 10)
 
 function t_server_stop()
 {
-    if (!isset($GLOBALS['T_SERVER']) || !is_resource($GLOBALS['T_SERVER'])) {
-        return;
+    foreach (['T_SERVER', 'T_SOFT_SOURCE'] as $key) {
+        if (!isset($GLOBALS[$key]) || !is_resource($GLOBALS[$key])) {
+            continue;
+        }
+        proc_terminate($GLOBALS[$key]);
+        proc_close($GLOBALS[$key]);
+        $GLOBALS[$key] = null;
     }
-    proc_terminate($GLOBALS['T_SERVER']);
-    proc_close($GLOBALS['T_SERVER']);
-    $GLOBALS['T_SERVER'] = null;
+}
+
+/**
+ * 起假源站（tests/fake_http.php）：软件仓库「服务器代下载」的靶子。
+ *
+ * 单独一个进程、单独一个端口，被测服务器才会真的有一次跨进程的 HTTP 往返——
+ * 走的是 src/softnet.php 里那套完整的 socket 客户端，包括分块解码与重定向。
+ */
+function t_soft_source_start($root, $port)
+{
+    $logDir = $root . '/var/test-logs';
+    if (!is_dir($logDir)) {
+        mkdir($logDir, 0775, true);
+    }
+
+    $command = t_command([
+        PHP_BINARY,
+        '-S', '127.0.0.1:' . (int) $port,
+        'tests/fake_http.php',
+    ]);
+
+    $descriptors = [
+        0 => ['pipe', 'r'],
+        1 => ['file', t_native_path($logDir) . '/soft-source.out.log', 'a'],
+        2 => ['file', t_native_path($logDir) . '/soft-source.err.log', 'a'],
+    ];
+
+    $pipes = [];
+    $process = @proc_open($command, $descriptors, $pipes, $root, getenv());
+    if (!is_resource($process)) {
+        return null;
+    }
+    $GLOBALS['T_SOFT_SOURCE'] = $process;
+
+    return $process;
+}
+
+/** 假源站的 stderr 末尾，起不来时用它判断是端口占用还是脚本报错 */
+function t_soft_source_log($root, $lines = 15)
+{
+    $file = $root . '/var/test-logs/soft-source.err.log';
+    if (!is_file($file)) {
+        return '（还没有输出）';
+    }
+    $all = file($file, FILE_IGNORE_NEW_LINES);
+    return implode("\n", array_slice((array) $all, -$lines));
 }
 
 /** 服务器 stderr 的最后若干行，启动失败时用来看原因 */

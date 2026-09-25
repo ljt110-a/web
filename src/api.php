@@ -54,10 +54,23 @@ $routes = [
     'GET /api/novel' => 'api_novel_open',
     'GET /api/novel/chapter' => 'api_novel_chapter',
     'POST /api/novel/progress' => 'api_novel_progress',
+    'GET /api/software' => 'api_software_list',
+    'GET /api/software/file' => 'api_software_file',
+    'GET /api/software/icon' => 'api_software_icon',
     'GET /api/admin/games' => 'api_admin_games_list',
     'POST /api/admin/games' => 'api_admin_game_create',
     'POST /api/admin/games/update' => 'api_admin_game_update',
     'DELETE /api/admin/games' => 'api_admin_game_delete',
+    'GET /api/admin/software' => 'api_admin_software_list',
+    'POST /api/admin/software' => 'api_admin_software_create',
+    'POST /api/admin/software/update' => 'api_admin_software_update',
+    'DELETE /api/admin/software' => 'api_admin_software_delete',
+    'POST /api/admin/software/grab' => 'api_admin_software_grab',
+    'POST /api/admin/software/release' => 'api_admin_software_release',
+    'POST /api/admin/software/identify' => 'api_admin_software_identify',
+    'POST /api/admin/software/icon' => 'api_admin_software_icon_upload',
+    'POST /api/admin/software/icon/fetch' => 'api_admin_software_icon_fetch',
+    'DELETE /api/admin/software/icon' => 'api_admin_software_icon_clear',
     'GET /api/admin/users' => 'api_admin_users',
     'DELETE /api/admin/users' => 'api_admin_user_delete',
     'POST /api/admin/reset-password' => 'api_admin_reset_password',
@@ -81,6 +94,13 @@ try {
     if (isset($routes[$method . ' ' . $dispatchPath])) {
         $handler = $routes[$method . ' ' . $dispatchPath];
         list($status, $payload) = $handler();
+        // 绝大多数接口回的是 JSON。软件仓库的安装包与图标是文件本身，
+        // 这类处理函数返回 ['file' => [...]] 这个形状，分发层认它并原样流出去。
+        // 只认这一个额外的键，别的键名一律照旧走 JSON，不会出现「拼错键名把文件当 JSON 发」。
+        if (is_array($payload) && count($payload) === 1 && isset($payload['file']) && is_array($payload['file'])) {
+            stream_file_response($payload['file']);
+            return;
+        }
         json_out($payload, $status);
         return;
     }
@@ -655,4 +675,201 @@ function public_user(array $user)
         // 个人中心要显示注册时间；这里已经是「给人看」的视图，顺手格式化好
         'createdAt' => isset($user['created_at']) ? format_datetime($user['created_at']) : '—',
     ];
+}
+
+// ============================================================
+// 软件仓库（src/software.php + src/softnet.php）
+// ============================================================
+
+/**
+ * 取查询串里的软件 id。
+ * 缺 id 要回 422 说清楚，而不是当成 0 —— 当成 0 会让「没传参数」和
+ * 「这个 id 不存在」混成同一条 404，排查时看不出是谁的问题。
+ */
+function query_software_id()
+{
+    if (!isset($_GET['id']) || !is_numeric($_GET['id'])) {
+        throw new ApiException('缺少软件 id', 422);
+    }
+    $id = (int) $_GET['id'];
+    if ($id <= 0) {
+        throw new ApiException('软件 id 不正确', 422);
+    }
+    return $id;
+}
+
+/**
+ * 写操作里的软件 id，顺带把请求体交回去（图标上传还要读 image 字段）。
+ * 缺 id 与查询串那条给出同样的 422：请求写错了，不该混进「这个 id 不存在」。
+ *
+ * @return array [body, id]
+ */
+function body_software_id()
+{
+    $body = body_json();
+    $id = body_int($body, 'id', 0, 0, 2147483647);
+    if ($id <= 0) {
+        throw new ApiException('缺少软件 id', 422);
+    }
+    return [$body, $id];
+}
+
+/**
+ * GET /api/software —— 公开清单。
+ * 刻意传 null 而不是 current_user()：这一条对所有人返回同样的字节，
+ * 未登录的人看到的就是已上架的全部，「还能不能上下架」这种判断只存在于
+ * /api/admin/software。
+ */
+function api_software_list()
+{
+    return [200, software_list(null)];
+}
+
+/**
+ * 这一条既服务访客也服务管理员：下架条目的图标与安装包只给管理员看，
+ * 所以要认一下来客。认不出就当访客——这里绝不调 require_*，未登录是正常情况。
+ */
+function software_viewer_is_admin()
+{
+    $viewer = current_user();
+    return $viewer !== null && $viewer['role'] === 'admin';
+}
+
+/** GET /api/software/file —— 把服务器代下载下来的安装包发给浏览器 */
+function api_software_file()
+{
+    return [200, ['file' => software_serve_target(query_software_id(), 'file', software_viewer_is_admin())]];
+}
+
+/** GET /api/software/icon —— 本地图标。走这一条而不是直接外链，是为了不动 CSP 的 img-src 'self' */
+function api_software_icon()
+{
+    return [200, ['file' => software_serve_target(query_software_id(), 'icon', software_viewer_is_admin())]];
+}
+
+/** GET /api/admin/software —— 管理员视角：含已下架的条目与抓包细节 */
+function api_admin_software_list()
+{
+    $actor = require_admin();
+    return [200, software_list($actor)];
+}
+
+/** POST /api/admin/software —— 新增一款（此刻还不碰远端，抓包是另一个动作） */
+function api_admin_software_create()
+{
+    $actor = require_admin();
+    $body = body_json();
+    return [201, [
+        'software' => software_create($actor, $body),
+        'list' => software_list($actor),
+    ]];
+}
+
+/** POST /api/admin/software/update —— 部分更新，只改请求里出现过的字段 */
+function api_admin_software_update()
+{
+    $actor = require_admin();
+    $body = body_json();
+    $id = body_int($body, 'id', 0, 0, 2147483647);
+    if ($id <= 0) {
+        throw new ApiException('缺少软件 id', 422);
+    }
+
+    $editable = [
+        'name', 'slug', 'category', 'platforms', 'tags', 'description',
+        'homepage', 'githubUrl', 'giteeUrl', 'downloadUrl',
+        'sourceMode', 'version', 'license', 'starCount', 'sortOrder', 'enabled',
+    ];
+    $fields = [];
+    foreach ($editable as $key) {
+        if (array_key_exists($key, $body)) {
+            $fields[$key] = $body[$key];
+        }
+    }
+
+    return [200, [
+        'software' => software_update($actor, $id, $fields),
+        'list' => software_list($actor),
+    ]];
+}
+
+/** DELETE /api/admin/software —— 删条目，连本地安装包与图标一起删 */
+function api_admin_software_delete()
+{
+    $actor = require_admin();
+    list(, $id) = body_software_id();
+
+    return [200, software_delete($actor, $id) + ['list' => software_list($actor)]];
+}
+
+/**
+ * POST /api/admin/software/grab —— 服务器代下载：按取包方式把安装包抓到本机。
+ *
+ * 这是同步的：请求会一直挂着直到抓完或失败，最长可能几十秒。
+ * 之所以不做成「起个后台任务再轮询」——PHP 这边没有常驻进程可以派活，
+ * 内置服务器更是单线程，起了任务也只会把轮询请求一起堵住。
+ * 前端要为这一条单独放宽超时（core.js 里 api() 的第四个参数）。
+ */
+function api_admin_software_grab()
+{
+    $actor = require_admin();
+    list(, $id) = body_software_id();
+
+    return [200, software_grab_file($actor, $id) + ['list' => software_list($actor)]];
+}
+
+/** POST /api/admin/software/release —— 不再由服务器代下载：删掉本地包，条目与图标留着 */
+function api_admin_software_release()
+{
+    $actor = require_admin();
+    list(, $id) = body_software_id();
+
+    return [200, [
+        'software' => software_release_file($actor, $id),
+        'list' => software_list($actor),
+    ]];
+}
+
+/**
+ * POST /api/admin/software/identify —— 「自动识别信息」：只读仓库元数据，不动磁盘、不写库。
+ *
+ * 回来的字段由前端填进表单，管理员确认之后再点「保存此软件」。
+ * 和抓包一样是同步出网，所以也要放宽前端超时。
+ */
+function api_admin_software_identify()
+{
+    $actor = require_admin();
+    $body = body_json();
+
+    return [200, software_identify($actor, body_string($body, 'githubUrl'), body_string($body, 'giteeUrl'))];
+}
+
+/** POST /api/admin/software/icon —— 管理员自己传一枚图标（base64 塞在 JSON 里，全站写操作都是 JSON） */
+function api_admin_software_icon_upload()
+{
+    $actor = require_admin();
+    list($body, $id) = body_software_id();
+
+    return [200, software_upload_icon($actor, $id, body_string($body, 'image')) + ['list' => software_list($actor)]];
+}
+
+/** POST /api/admin/software/icon/fetch —— 「智能获取」：从仓库或官网顺手取一枚图标，同样要过出网闸门 */
+function api_admin_software_icon_fetch()
+{
+    $actor = require_admin();
+    list(, $id) = body_software_id();
+
+    return [200, software_fetch_icon($actor, $id) + ['list' => software_list($actor)]];
+}
+
+/** DELETE /api/admin/software/icon —— 去掉本站图标，卡片退回首字母占位 */
+function api_admin_software_icon_clear()
+{
+    $actor = require_admin();
+    list(, $id) = body_software_id();
+
+    return [200, [
+        'software' => software_clear_icon($actor, $id),
+        'list' => software_list($actor),
+    ]];
 }

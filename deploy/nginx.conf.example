@@ -97,7 +97,12 @@ server {
         fastcgi_pass   unix:/run/php/php7.4-fpm.sock;   # ← 按实际的 PHP-FPM 地址改
         fastcgi_param  SCRIPT_FILENAME $document_root$fastcgi_script_name;
         fastcgi_param  HTTPS on;                        # 让 is_https() 认得出当前是 HTTPS
-        fastcgi_read_timeout 30s;
+        # 三次「服务器出网」的接口（软件仓库的抓包 / 识别 / 取图标）在 PHP 回话之前可以静默几十秒，
+        # 而这一项量的是「两次读到上游字节之间的间隔」。30s 是网关的一刀：管理员会看到一页 504，
+        # 服务端的抓取却还在往下走。放到 180 秒——比前端的等待上限（CORE.slowApiTimeout = 120 秒）更宽，
+        # 于是超时先由页面报出来，界面上是一句人话而不是一页 nginx 的默认错误。
+        # 代价是一个慢请求会多占一会儿 PHP-FPM 进程，pm.max_children 按这个上限重新估一次。
+        fastcgi_read_timeout 180s;
 
         # 不要把 PHP 版本暴露出去
         fastcgi_hide_header X-Powered-By;

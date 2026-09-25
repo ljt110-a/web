@@ -37,6 +37,8 @@ require __DIR__ . '/memos.php';
 require __DIR__ . '/games.php';
 require __DIR__ . '/study.php';
 require __DIR__ . '/novels.php';
+require __DIR__ . '/softnet.php';
+require __DIR__ . '/software.php';
 require __DIR__ . '/admin.php';
 require __DIR__ . '/system.php';
 
